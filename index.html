@@ -74,11 +74,13 @@ nav.bar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; pa
 
 main { padding: 16px; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+.mobile-bar { display: none; }
 .games-view { display: grid; grid-template-columns: 300px minmax(300px, 580px) minmax(270px, 360px); gap: 16px; align-items: start; justify-content: center; }
 .list-col, .moves-col { display: flex; flex-direction: column; max-height: calc(100vh - 140px); min-height: 300px; }
 .col-head { padding: 10px 12px; border-bottom: 1px solid var(--line); font-size: 13px; }
 #gameList, #moves { list-style: none; margin: 0; padding: 4px; overflow: auto; flex: 1; position: relative; }
 #gameList li.empty { padding: 16px; color: var(--muted); }
+#gameList li.more { padding: 8px; display: flex; justify-content: center; }
 li.game { display: grid; grid-template-columns: 24px 1fr auto; gap: 8px; align-items: center; padding: 7px 8px; border-radius: 7px; cursor: pointer; }
 li.game:hover { background: var(--panel-2); }
 li.game.sel { background: var(--sel); }
@@ -253,13 +255,31 @@ tr.click { cursor: pointer; } tr.click:hover td { background: var(--panel-2); }
   #toast { bottom: calc(74px + env(safe-area-inset-bottom)); }
   main { padding: 8px; }
   .games-view, .puzzle-view { grid-template-columns: 1fr; gap: 10px; }
-  .moves-col { grid-column: auto; }
-  .list-col { max-height: 300px; }
+  .moves-col { grid-column: auto; max-height: none; }
   .pz { padding: 12px 14px; }
+  /* The Games tab is two screens: the list of games, or the game you opened with a way back. The
+     filters belong to the list; the eval graph and arrow legend give way to the review panel's graph. */
+  .list-col { max-height: none; }
+  nav.bar { flex-wrap: nowrap; overflow-x: auto; }
+  .filters { flex: none; flex-wrap: nowrap; }
+  /* Each game in the list shows its own analysis; the month-wide engine status and button are desktop things. */
+  nav.bar > :is(.spacer, #engineStatus, .progress, #monthProgress, #analyseMonth) { display: none; }
+  #month { max-width: 38vw; }
+  details.settings > summary { font-size: 0; padding: 6px 10px; }
+  details.settings > summary::before { content: '⚙'; font-size: 20px; line-height: 1; }
+  .mobile-bar button { flex: none; white-space: nowrap; }
+  body[data-screen="list"] :is(.board-col, .moves-col) { display: none; }
+  body[data-screen="game"] .list-col, .board-col > :is(.legend, .graph-wrap) { display: none; }
+  body[data-view="games"][data-screen="game"] .mobile-bar { display: flex; align-items: center; gap: 10px; font-weight: 600; min-width: 0; }
+  #mobileTitle { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  body[data-view="games"][data-screen="game"] nav.bar { padding: 0; border: 0; }
+  body[data-view="games"][data-screen="game"] nav.bar > :not(.tabs) { display: none; }
+  /* Before you start, the review sits right under the board; the move coaching takes over once you do. */
+  body[data-pane="review"] #coach, #gameTools { display: none; }
 }
 </style>
 </head>
-<body data-view="games">
+<body data-view="games" data-screen="list">
 <header class="top">
   <h1>Chess analyser</h1>
   <form id="loadForm">
@@ -276,7 +296,7 @@ tr.click { cursor: pointer; } tr.click:hover td { background: var(--panel-2); }
       <label>Parallel engines <input id="setEngines" type="number" min="1" max="16"></label>
       <label>Better-move arrows <input id="setArrows" type="checkbox"></label>
       <label>New puzzles per day <input id="setDaily" type="number" min="1" max="50"></label>
-      <label>Analyse automatically <select id="setAuto"><option value="all">All months</option><option value="month">Month on screen</option><option value="off">Off</option></select></label>
+      <label>Analyse automatically <select id="setAuto"><option value="list">Games in the list</option><option value="all">Every game</option><option value="off">Only the game I open</option></select></label>
       <p>Depth applies to new analyses. Each engine is one single-threaded Stockfish worker.</p>
       <div><div id="cacheInfo" class="muted" style="font-size:12px"></div></div>
       <button id="clearCache" type="button">Clear cached analyses</button>
@@ -311,6 +331,7 @@ tr.click { cursor: pointer; } tr.click:hover td { background: var(--panel-2); }
 
 <main>
   <section id="gamesView" class="games-view">
+    <div class="mobile-bar"><button id="backToList" type="button">‹ Games</button><span id="mobileTitle"></span></div>
     <aside class="panel list-col">
       <div class="col-head"><span id="listCount" class="muted">No games loaded</span></div>
       <ul id="gameList"><li class="empty">Enter a Chess.com username to load games.</li></ul>
@@ -411,10 +432,17 @@ const cores = navigator.hardwareConcurrency || 2;
 const touch = matchMedia('(pointer: coarse)').matches;
 const settings = Object.assign(
   // A phone analyses only the game you open by default: the Mac does the bulk and shares it.
-  { user: '', depth: 18, engines: Math.max(1, Math.min(4, cores - 1)), arrows: true, daily: 10, auto: touch ? 'off' : 'all' },
+  { user: '', depth: 18, engines: Math.max(1, Math.min(4, cores - 1)), arrows: true, daily: 10, auto: touch ? 'off' : 'list' },
   store.get(SETTINGS),
 );
 const saveSettings = () => store.set(SETTINGS, settings);
+// "All months" (the old default) and "Month on screen" kept the engines busy for hours; the list of your
+// latest games replaced both, once. Choosing Every game again afterwards sticks.
+if (!store.get('cca:list-auto')) {
+  if (settings.auto === 'all' || settings.auto === 'month') settings.auto = 'list';
+  saveSettings();
+  store.set('cca:list-auto', true);
+}
 
 // Analyses and puzzles live in IndexedDB, which has room for years of games; localStorage holds
 // about 5 MB, a few months of analyses. Settings stay in localStorage.
@@ -956,7 +984,7 @@ function rate() {
 // ---------- state ----------
 const S = {
   user: '', ym: '', archives: [], games: [], byUrl: new Map(), cur: null, ply: 0, flipped: false, view: 'games',
-  filters: { result: 'all', color: 'all', tc: 'all', blunders: false }, onlyErrors: false, hint: false, line: null, token: 0, allLoaded: false,
+  filters: { result: 'all', color: 'all', tc: 'all', blunders: false }, onlyErrors: false, hint: false, line: null, token: 0, allLoaded: false, listSize: 10,
 };
 
 // ---------- chess.com ----------
@@ -1105,7 +1133,7 @@ async function refreshLatest(force = false) {
     const j = await api(`player/${name}/games/${y}/${m}`, { cache: 'no-cache' });
     const fresh = (j.games || []).filter((x) => x.rules === 'chess' && !allGames.has(x.url));
     if (token !== S.token || !fresh.length) return;
-    const newest = S.cur === month.games[0] && S.ply === 0 && !S.line;
+    const newest = S.cur === month.games[0] && S.ply === 0 && !S.line && document.body.dataset.screen === 'game';
     const added = await addGames(user, ym, fresh);
     if (token !== S.token) return;
     month.games.push(...added);
@@ -1115,8 +1143,8 @@ async function refreshLatest(force = false) {
       fillTimeClasses();
       renderList();
       if (newest) select(month.games[0]);
-    }
-    if (settings.auto === 'all' || (settings.auto === 'month' && S.ym === ym)) queueGames(added, true);
+      queueAuto();
+    } else if (settings.auto === 'all') queueGames(added, true);
     updateMonthControls();
     gamesChanged();
     toast(added.length === 1 ? `New game: ${added[0].opp.username} (${{ W: 'won', D: 'drawn', L: 'lost' }[added[0].result]})` : `${added.length} new games`);
@@ -1124,7 +1152,8 @@ async function refreshLatest(force = false) {
 }
 
 async function loadMonth(ym, gameId, token) {
-  S.ym = ym; S.games = []; S.byUrl.clear(); S.cur = null;
+  S.ym = ym; S.games = []; S.byUrl.clear(); S.cur = null; S.listSize = LIST_STEP;
+  setScreen('list');
   renderList(); renderGame();
   setStatus('Loading ' + monthLabel(ym) + '…');
   const { games, imported, skipped } = await gamesOf(ym);
@@ -1144,13 +1173,12 @@ async function loadMonth(ym, gameId, token) {
 }
 
 // With a month on screen, the rest of the account loads in the background, newest month first, so
-// puzzles and patterns cover every analysed game. The auto setting decides what gets analysed: every
-// month, the month on screen (always at the front of the queue), or only the game you open.
+// puzzles, patterns and the explorer cover every analysed game. What gets analysed is queueAuto's call.
 // A newer call (another month, user or setting) supersedes an older one still fetching months.
 let autoRun = 0;
 async function loadAccount(token) {
   const run = ++autoRun;
-  if (settings.auto !== 'off') queueGames(S.games, true);
+  queueAuto();
   for (const ym of S.archives) {
     if (ym === S.ym) continue;
     let res;
@@ -1162,6 +1190,17 @@ async function loadAccount(token) {
   }
   S.allLoaded = true; // opening cards need every game, or recurring positions look rarer than they are
   gamesChanged();
+}
+
+// The side list shows the month's latest games that pass the filters, LIST_STEP at a time.
+const LIST_STEP = 10;
+const shownGames = () => filtered().slice(0, S.listSize);
+
+// What the background analysis covers: the games in the list (the queue is exactly those, newest first),
+// every game on the account, or nothing but the game you open.
+function queueAuto() {
+  if (settings.auto === 'list') { sched.queue.length = 0; queueGames(shownGames(), true); }
+  if (settings.auto === 'all') queueGames(S.games, true);
 }
 
 function filtered() {
@@ -1178,12 +1217,22 @@ function select(g, ply = 0) {
   stopLine(false);
   S.cur = g; S.ply = ply; S.flipped = false;
   analyse(g);
+  setScreen('game');
   if (!ply) setPane('review'); // a fresh game opens on its review; a link to a move goes straight there
+  const at = filtered().indexOf(g);
+  if (at >= S.listSize) { S.listSize = Math.ceil((at + 1) / LIST_STEP) * LIST_STEP; renderList(); }
   document.querySelectorAll('#gameList li.sel').forEach((li) => li.classList.remove('sel'));
   const li = listItem(g);
   if (li) { li.classList.add('sel'); scrollInList(li); }
   renderGame();
   setHash();
+}
+
+// On a phone the Games tab shows either the list or the open game (see the phone styles); the desktop
+// shows both, so there this only records which one a phone would show.
+function setScreen(screen) {
+  document.body.dataset.screen = screen;
+  if (screen === 'game' && matchMedia('(max-width: 760px)').matches) scrollTo(0, 0);
 }
 
 // Jumps within the game, leaving any engine line being previewed.
@@ -1370,6 +1419,7 @@ function setPane(pane) {
   if (pane !== 'review') { settings.pane = pane; saveSettings(); }
   document.querySelectorAll('#paneTabs button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.pane === pane)));
   for (const p of ['review', 'moves', 'explorer']) $('#' + p).hidden = pane !== p;
+  document.body.dataset.pane = pane;
   renderExplorer();
   renderReview();
 }
@@ -1557,13 +1607,14 @@ function gameItem(g) {
 
 function renderList() {
   const el = $('#gameList');
-  const list = filtered();
-  $('#listCount').textContent = S.games.length ? `${list.length} of ${S.games.length} games · ${S.ym ? monthLabel(S.ym) : ''}` : 'No games loaded';
+  const all = filtered(), list = all.slice(0, S.listSize), more = Math.min(LIST_STEP, all.length - list.length);
+  $('#listCount').textContent = S.games.length ? `Latest ${list.length} of ${all.length} games · ${S.ym ? monthLabel(S.ym) : ''}` : 'No games loaded';
   if (!S.games.length) {
     el.innerHTML = `<li class="empty">${S.user ? 'No games loaded.' : 'Enter a Chess.com username to load games.'}</li>`;
     return;
   }
-  el.innerHTML = list.length ? list.map(gameItem).join('') : '<li class="empty">No games match the filters.</li>';
+  el.innerHTML = list.length ? list.map(gameItem).join('') + (more > 0 ? `<li class="more"><button data-more>Show ${more} more</button></li>` : '')
+    : '<li class="empty">No games match the filters.</li>';
 }
 
 // Two render levels: renderGame for anything that depends on the game or its analysis,
@@ -1571,6 +1622,7 @@ function renderList() {
 function renderGame() {
   const g = S.cur;
   $('#gameTools').hidden = $('#paneTabs').hidden = !g;
+  $('#mobileTitle').textContent = g ? `${g.opp.username} · ${{ W: 'you won', D: 'draw', L: 'you lost' }[g.result]} · ${fmtDay(g.end)}` : '';
   if (!g) {
     $('#openingName').textContent = S.games.length ? 'No game selected' : 'Chess analyser';
     $('#gameSub').textContent = S.games.length ? 'Pick a game from the list.' : 'Load a month of Chess.com games to start.';
@@ -1856,7 +1908,7 @@ function updateStatus() {
 }
 
 function updateMonthControls() {
-  const list = filtered().filter((g) => !g.broken);
+  const list = shownGames().filter((g) => !g.broken);
   const done = list.filter((g) => g.analysis).length;
   const todo = list.length - done;
   const running = queueRunning();
@@ -2766,11 +2818,16 @@ $('#loadForm').addEventListener('submit', (e) => {
 $('#month').addEventListener('change', (e) => start(S.user, e.target.value));
 
 $('#gameList').addEventListener('click', (e) => {
+  if (e.target.closest('[data-more]')) {
+    S.listSize += LIST_STEP;
+    renderList(); queueAuto(); updateMonthControls();
+    return;
+  }
   const li = e.target.closest('li.game');
   if (!li) return;
   select(S.byUrl.get(li.dataset.url));
-  if (matchMedia('(max-width: 760px)').matches) $('.board-col').scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
+$('#backToList').addEventListener('click', () => { setScreen('list'); listItem(S.cur)?.scrollIntoView({ block: 'center' }); });
 $('#moves').addEventListener('click', (e) => {
   const li = e.target.closest('li[data-ply]');
   if (li) go(+li.dataset.ply);
@@ -2786,11 +2843,11 @@ for (const [id, key] of [['#fResult', 'result'], ['#fColor', 'color'], ['#fTc', 
   $(id).addEventListener('change', (e) => { S.filters[key] = e.target.value; onFilter(); });
 }
 $('#fBlunders').addEventListener('change', (e) => { S.filters.blunders = e.target.checked; onFilter(); });
-function onFilter() { renderList(); updateMonthControls(); if (S.view === 'summary') renderSummary(); }
+function onFilter() { renderList(); queueAuto(); updateMonthControls(); if (S.view === 'summary') renderSummary(); }
 
 $('#analyseMonth').addEventListener('click', () => {
   if (queueRunning()) sched.paused = true;
-  else { sched.paused = false; queueGames(filtered(), true); renderList(); }
+  else { sched.paused = false; queueGames(shownGames(), true); renderList(); }
   updateMonthControls();
 });
 
@@ -2924,8 +2981,6 @@ setInterval(ping, 30000);
 renderGame();
 renderPuzzleCount();
 setPane(settings.pane === 'explorer' ? 'explorer' : 'moves');
-// On a phone the puzzles come first.
-if (touch && matchMedia('(max-width: 760px)').matches) setView('puzzles');
 const h = readHash();
 const bootUser = h.user || settings.user;
 if (bootUser) {
