@@ -274,8 +274,8 @@ tr.click { cursor: pointer; } tr.click:hover td { background: var(--panel-2); }
   #mobileTitle { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   body[data-view="games"][data-screen="game"] nav.bar { padding: 0; border: 0; }
   body[data-view="games"][data-screen="game"] nav.bar > :not(.tabs) { display: none; }
-  /* Before you start, the review sits right under the board; the move coaching takes over once you do. */
-  body[data-pane="review"] #coach, #gameTools { display: none; }
+  /* A game opens on its review summary, like Chess.com's app; Start review brings in the board. */
+  body[data-pane="review"] .board-col, #gameTools { display: none; }
 }
 </style>
 </head>
@@ -1480,6 +1480,7 @@ function renderReview() {
 // Starts at the first move that decided the game, or at the first move if none did.
 function startReview() {
   setPane(settings.pane === 'explorer' ? 'explorer' : 'moves');
+  setScreen('game'); // on a phone, back to the top, where the board now is
   const first = keyMoments(S.cur)[0];
   go(first ?? 1);
 }
