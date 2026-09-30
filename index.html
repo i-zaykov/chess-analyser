@@ -1,0 +1,2937 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chess Analyser</title>
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1f1e1c" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Chess">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" id="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="vendor/chessground.base.css">
+<link rel="stylesheet" href="vendor/chessground.brown.css">
+<link rel="stylesheet" href="vendor/chessground.cburnett.css">
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f4f3ef; --panel: #fff; --panel-2: #f8f7f4; --text: #1f1e1c; --muted: #6d6b64; --line: #e2dfd8;
+  --accent: #2d6cdf; --accent-text: #fff; --sel: #e6eefc;
+  --best: #1f9d55; --excellent: #4fae76; --good: #8aa595; --book: #9a7b4f; --inaccuracy: #b98c00; --mistake: #e0782a; --blunder: #d33d3d;
+  --W: #1f9d55; --L: #d33d3d; --D: #85837c;
+  --g-white: #ebe9e3; --g-black: #3b3a37; --g-mid: #9b9990;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161615; --panel: #1f1e1c; --panel-2: #262522; --text: #e8e6e1; --muted: #9c998f; --line: #34322e;
+    --accent: #5b8def; --sel: #22304a; --inaccuracy: #e0b422;
+    --g-white: #d9d6cf; --g-black: #2a2926; --g-mid: #6d6b64;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); font-size: 14px; }
+html { -webkit-text-size-adjust: 100%; touch-action: manipulation; }
+[hidden] { display: none !important; }
+button, input, select { font: inherit; color: inherit; }
+button, .btn { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
+button:hover:not(:disabled), .btn:hover { border-color: var(--muted); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+button:disabled { opacity: .5; cursor: default; }
+input, select { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
+label { display: inline-flex; align-items: center; gap: 5px; }
+.muted { color: var(--muted); }
+small { color: var(--muted); }
+
+header.top { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; padding: max(10px, env(safe-area-inset-top)) 16px 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
+header h1 { font-size: 16px; margin: 0; }
+#loadForm { display: flex; gap: 6px; flex-wrap: wrap; }
+#user { width: 180px; }
+#status { color: var(--muted); font-size: 13px; }
+.spacer { flex: 1; }
+details.settings { position: relative; margin-left: auto; } /* stays at the right edge when the header wraps */
+details.settings > summary { list-style: none; cursor: pointer; border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; }
+details.settings > summary::-webkit-details-marker { display: none; }
+.settings-panel { position: absolute; right: 0; top: 36px; z-index: 30; width: 280px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 12px; box-shadow: 0 8px 30px rgb(0 0 0 / .15); }
+.settings-panel label { justify-content: space-between; }
+.settings-panel input[type=number] { width: 70px; }
+.settings-panel p { margin: 0; font-size: 12px; color: var(--muted); }
+.settings-panel a { color: var(--accent); word-break: break-all; }
+.mac-only { display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 12px; }
+.qr svg { display: block; width: 180px; height: 180px; border-radius: 6px; }
+
+nav.bar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 8px 16px; border-bottom: 1px solid var(--line); }
+.tabs { display: flex; gap: 4px; }
+.tabs button[aria-selected="true"] { background: var(--text); border-color: var(--text); color: var(--bg); }
+.filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.progress { width: 140px; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.progress > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+#monthProgress, #engineStatus { font-size: 13px; color: var(--muted); }
+
+main { padding: 16px; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+.games-view { display: grid; grid-template-columns: 300px minmax(300px, 580px) minmax(270px, 360px); gap: 16px; align-items: start; justify-content: center; }
+.list-col, .moves-col { display: flex; flex-direction: column; max-height: calc(100vh - 140px); min-height: 300px; }
+.col-head { padding: 10px 12px; border-bottom: 1px solid var(--line); font-size: 13px; }
+#gameList, #moves { list-style: none; margin: 0; padding: 4px; overflow: auto; flex: 1; position: relative; }
+#gameList li.empty { padding: 16px; color: var(--muted); }
+li.game { display: grid; grid-template-columns: 24px 1fr auto; gap: 8px; align-items: center; padding: 7px 8px; border-radius: 7px; cursor: pointer; }
+li.game:hover { background: var(--panel-2); }
+li.game.sel { background: var(--sel); }
+li.game.broken { opacity: .5; cursor: default; }
+.res { width: 22px; height: 22px; border-radius: 5px; display: grid; place-items: center; font-weight: 700; font-size: 12px; color: #fff; }
+.res-W { background: var(--W); } .res-L { background: var(--L); } .res-D { background: var(--D); }
+.gmain { min-width: 0; }
+.gopp { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gmeta { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gstat { font-size: 12px; text-align: right; white-space: nowrap; }
+.gstat .errs { display: block; }
+.pc { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--muted); margin-right: 6px; vertical-align: 0; }
+.pc-w { background: #fff; } .pc-b { background: #222; }
+
+.board-col { display: grid; gap: 8px; min-width: 0; }
+.player { display: flex; align-items: center; gap: 8px; padding: 6px 10px; min-height: 36px; }
+.player .pname { font-weight: 600; }
+.player .pacc { font-size: 12px; color: var(--muted); }
+.player { flex-wrap: wrap; }
+.player .delta { font-size: 12px; font-weight: 600; color: var(--muted); }
+.delta.up { color: var(--W); } .delta.down { color: var(--L); }
+.player .perf { font-size: 12px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px; padding: 0 6px; }
+.player .clock { margin-left: auto; font-variant-numeric: tabular-nums; background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px; padding: 1px 7px; font-size: 13px; }
+.board-wrap { display: grid; grid-template-columns: 14px 1fr; gap: 6px; }
+#evalBar { position: relative; background: var(--g-black); border-radius: 4px; overflow: hidden; border: 1px solid var(--line); }
+#evalBar > i { position: absolute; left: 0; right: 0; bottom: 0; height: 50%; background: var(--g-white); transition: height .25s; }
+#evalBar.flipped > i { top: 0; bottom: auto; }
+#board { width: 100%; aspect-ratio: 1 / 1; }
+/* The last move's squares take its label's colour, as on Chess.com (--mv is set per position). */
+:is(#board, #pBoard) square.last-move { background-color: color-mix(in srgb, var(--mv, rgb(155 199 0)) 45%, transparent); }
+.controls { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; align-items: center; }
+.controls svg { width: 16px; height: 16px; fill: currentColor; }
+.coach p.moment { margin: 0 0 8px; padding: 6px 10px; border-radius: 6px; background: var(--sel); font-weight: 600; }
+.coach { padding: 10px 12px; font-size: 13px; line-height: 1.5; min-height: 118px; }
+.coach p { margin: 6px 0 0; }
+.coach-head { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.coach-head .cev { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--muted); }
+.chip { min-width: 26px; height: 22px; padding: 0 6px; border-radius: 5px; display: inline-grid; place-items: center; font-weight: 700; font-size: 12px; color: #fff; background: var(--muted); flex: none; }
+.chip-best { background: var(--best); } .chip-excellent { background: var(--excellent); } .chip-good { background: var(--good); }
+.chip-book { background: var(--book); } .chip-inaccuracy { background: var(--inaccuracy); } .chip-mistake { background: var(--mistake); }
+.chip-blunder { background: var(--blunder); } .chip-line { background: var(--accent); }
+.coach button { padding: 1px 8px; font-size: 12px; }
+.coach .mv-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.coach .mv-btns button.primary { padding: 5px 14px; font-size: 13px; font-weight: 600; }
+.coach .mvbtn { padding: 5px 11px 5px 9px; font-size: 13px; gap: 7px; border-left: 4px solid var(--line); }
+.coach .mvbtn .k { color: var(--muted); font-size: 12px; }
+.coach .mvbtn small { color: var(--muted); font-size: 12px; }
+.coach .mvbtn::before { content: '▶'; font-size: 9px; color: var(--muted); }
+.coach .mv-better { border-left-color: #15781b; } .coach .mv-reply { border-left-color: #c33; }
+.coach .lm { padding: 0 3px; border-radius: 4px; }
+.coach .lm.cur { background: var(--sel); font-weight: 600; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; justify-content: center; font-size: 12px; color: var(--muted); }
+.legend i { display: inline-block; width: 16px; height: 4px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
+button[aria-pressed="true"] { background: var(--sel); border-color: var(--accent); }
+.graph-wrap { position: relative; padding: 0; overflow: hidden; }
+.evgraph { display: block; width: 100%; }
+#graph { height: 120px; cursor: pointer; }
+.evgraph .g-bg { fill: var(--g-black); }
+.evgraph .g-area { fill: var(--g-white); }
+.evgraph .g-mid { stroke: var(--g-mid); stroke-dasharray: 3 3; }
+.evgraph .g-cur { stroke: var(--accent); stroke-width: 2; }
+.evgraph .dot { stroke: var(--panel); stroke-width: 1; }
+.evgraph .dot.theirs { fill-opacity: .45; }
+.evgraph .dot.inaccuracy { fill: var(--inaccuracy); } .evgraph .dot.mistake { fill: var(--mistake); } .evgraph .dot.blunder { fill: var(--blunder); }
+#gTip { position: absolute; top: 6px; pointer-events: none; background: var(--panel); border: 1px solid var(--line); border-radius: 5px; padding: 2px 7px; font-size: 12px; white-space: nowrap; }
+
+.opening { font-weight: 600; }
+.gsub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.mh-tools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+.mh-tools button, .mh-tools .btn { padding: 3px 8px; font-size: 12px; }
+.pane-tabs { display: flex; gap: 4px; margin-top: 8px; }
+.review { overflow: auto; flex: 1; padding: 12px; display: grid; gap: 14px; align-content: start; font-size: 13px; }
+.rv-coach { display: flex; gap: 10px; align-items: flex-start; }
+.rv-avatar { flex: none; width: 38px; height: 38px; border-radius: 50%; background: var(--book); color: #fff; display: grid; place-items: center; font-size: 22px; }
+.rv-bubble { margin: 0; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 11px; line-height: 1.45; }
+.rv-graph { height: 64px; border-radius: 6px; overflow: hidden; }
+.rv-grid { display: grid; grid-template-columns: 1fr 84px 30px 84px; align-items: center; row-gap: 7px; }
+.rv-grid .v { text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+.rv-grid .who { text-align: center; font-weight: 600; font-size: 12px; line-height: 1.25; overflow-wrap: anywhere; }
+.rv-grid .v .delta { display: block; font-size: 11px; }
+.rv-grid .ico { display: grid; place-items: center; }
+.rv-grid .hr { grid-column: 1 / -1; border-top: 1px solid var(--line); margin: 3px 0; }
+.rv-box { display: inline-block; min-width: 58px; padding: 4px 6px; border-radius: 6px; font-weight: 700; }
+.rv-box.w { background: #fff; color: #222; border: 1px solid var(--line); } .rv-box.b { background: #3b3a37; color: #fff; }
+.rv-grid .v-best { color: var(--best); } .rv-grid .v-excellent { color: var(--excellent); } .rv-grid .v-good { color: var(--good); } .rv-grid .v-book { color: var(--book); }
+.rv-grid .v-inaccuracy { color: var(--inaccuracy); } .rv-grid .v-mistake { color: var(--mistake); } .rv-grid .v-blunder { color: var(--blunder); }
+.review .rv-start { width: 100%; justify-content: center; font-size: 16px; font-weight: 700; padding: 11px; background: var(--best); border-color: var(--best); color: #fff; }
+.pane-tabs button { padding: 3px 10px; font-size: 12px; }
+.explorer { overflow: auto; flex: 1; padding: 8px 10px 12px; font-size: 13px; display: grid; gap: 10px; align-content: start; }
+.explorer p { margin: 0; line-height: 1.45; }
+.explorer h4 { margin: 0; font-size: 12px; color: var(--muted); font-weight: 600; }
+.explorer table { font-size: 13px; }
+.explorer td, .explorer th { padding: 4px 6px; }
+.explorer .tag { font-size: 11px; color: var(--book); margin-left: 4px; }
+.wdl { display: flex; width: 90px; height: 8px; border-radius: 4px; overflow: hidden; background: var(--line); }
+.wdl i { display: block; height: 100%; } .wdl .w { background: var(--W); } .wdl .d { background: var(--D); } .wdl .l { background: var(--L); }
+.ex-card { background: var(--panel-2); border-left: 3px solid var(--mistake); border-radius: 6px; padding: 8px 10px; display: grid; gap: 6px; justify-items: start; }
+#moves li { display: grid; grid-template-columns: 40px 1fr auto; column-gap: 6px; align-items: baseline; padding: 4px 8px; border-radius: 6px; cursor: pointer; }
+#moves li:hover { background: var(--panel-2); }
+#moves li.cur { background: var(--sel); }
+#moves li.b { box-shadow: inset 0 -1px 0 var(--line); }
+#moves li.hide { display: none; }
+#moves .no { color: var(--muted); font-size: 12px; }
+#moves li.me .san { font-weight: 600; }
+#moves .ev { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--muted); }
+#moves .alt { grid-column: 2 / -1; font-size: 12px; color: var(--muted); }
+#moves .pv { opacity: .8; }
+.lbl { font-weight: 700; margin-left: 4px; font-size: 12px; }
+.lbl-best { color: var(--best); } .lbl-excellent { color: var(--excellent); } .lbl-good { color: var(--good); } .lbl-book { color: var(--book); font-weight: 500; }
+.lbl-inaccuracy { color: var(--inaccuracy); } .lbl-mistake { color: var(--mistake); } .lbl-blunder { color: var(--blunder); }
+.empty-note { padding: 24px; color: var(--muted); text-align: center; }
+
+.summary { max-width: 1100px; margin: 0 auto; display: grid; gap: 16px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.tile { padding: 12px 14px; }
+.tile .k { font-size: 12px; color: var(--muted); }
+.tile .v { font-size: 22px; font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.tile .s { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.summary h2 { font-size: 14px; margin: 0; padding: 12px 14px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: center; }
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-weight: 600; color: var(--muted); font-size: 12px; }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+tbody tr:last-child td { border-bottom: 0; }
+tr.click { cursor: pointer; } tr.click:hover td { background: var(--panel-2); }
+.exports { display: flex; gap: 6px; flex-wrap: wrap; }
+#toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-size: 13px; z-index: 50; max-width: calc(100vw - 32px); }
+
+.puzzle-view { display: grid; grid-template-columns: minmax(300px, 560px) minmax(280px, 380px); gap: 16px; align-items: start; justify-content: center; }
+#pBoard { width: 100%; aspect-ratio: 1 / 1; }
+.pz { padding: 14px 16px; display: grid; gap: 12px; font-size: 14px; line-height: 1.5; }
+.pz p { margin: 0; }
+.pz-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pz-task { font-size: 17px; font-weight: 700; display: flex; align-items: center; gap: 4px; }
+.pz-ctx { color: var(--muted); font-size: 13px; }
+.pz-status { border-radius: 8px; padding: 10px 12px; background: var(--panel-2); border-left: 4px solid var(--line); }
+.pz-status.right { border-left-color: var(--best); }
+.pz-status.wrong { border-left-color: var(--blunder); }
+.pz-status.check { border-left-color: var(--accent); }
+.pz-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.pz-stats { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--line); padding-top: 10px; }
+.pt-bar { display: inline-block; height: 8px; border-radius: 4px; background: var(--accent); opacity: .75; vertical-align: middle; }
+.badge { display: inline-block; min-width: 18px; padding: 0 5px; border-radius: 9px; background: var(--accent); color: var(--accent-text); font-size: 11px; line-height: 17px; text-align: center; }
+.tabs button[aria-selected="true"] .badge { background: var(--bg); color: var(--text); }
+
+@media (max-width: 1180px) {
+  .games-view { grid-template-columns: 280px minmax(300px, 1fr); }
+  .moves-col { grid-column: 2; max-height: 480px; }
+}
+@media (pointer: coarse) {
+  button, .btn, select, input:not([type=checkbox]) { min-height: 40px; }
+  input, select { font-size: 16px; } /* smaller text makes iOS zoom in on focus */
+}
+/* Phone: one column, and the tabs become a bar at the bottom within thumb reach. */
+@media (max-width: 760px) {
+  html, body { font-size: 15px; }
+  body { padding-bottom: calc(62px + env(safe-area-inset-bottom)); }
+  header.top { padding: max(8px, env(safe-area-inset-top)) 10px 8px; gap: 6px 8px; flex-wrap: nowrap; }
+  header h1, header .spacer { display: none; }
+  #loadForm { flex: 1; flex-wrap: nowrap; min-width: 0; }
+  #user { width: auto; flex: 1; min-width: 0; }
+  #status { display: none; }
+  .settings-panel { position: fixed; left: 8px; right: 8px; top: calc(env(safe-area-inset-top) + 60px); width: auto; max-height: calc(100dvh - env(safe-area-inset-top) - 140px); overflow: auto; }
+  nav.bar { padding: 8px 10px; }
+  .tabs { position: fixed; z-index: 40; left: 0; right: 0; bottom: 0; gap: 2px; background: var(--panel); border-top: 1px solid var(--line); padding: 5px 6px max(5px, env(safe-area-inset-bottom)); }
+  .tabs button { flex: 1; justify-content: center; min-height: 48px; border: 0; border-radius: 8px; background: none; font-weight: 600; }
+  .tabs button[aria-selected="true"] { background: var(--sel); border-color: transparent; color: var(--text); }
+  .tabs button[aria-selected="true"] .badge { background: var(--accent); color: var(--accent-text); }
+  body:is([data-view="puzzles"], [data-view="patterns"]) nav.bar { padding: 0; border: 0; }
+  body:is([data-view="puzzles"], [data-view="patterns"]) nav.bar > :not(.tabs) { display: none; }
+  #toast { bottom: calc(74px + env(safe-area-inset-bottom)); }
+  main { padding: 8px; }
+  .games-view, .puzzle-view { grid-template-columns: 1fr; gap: 10px; }
+  .moves-col { grid-column: auto; }
+  .list-col { max-height: 300px; }
+  .pz { padding: 12px 14px; }
+}
+</style>
+</head>
+<body data-view="games">
+<header class="top">
+  <h1>Chess analyser</h1>
+  <form id="loadForm">
+    <input id="user" placeholder="Chess.com username" autocomplete="off" spellcheck="false" required>
+    <button class="primary" type="submit">Load</button>
+    <select id="month" aria-label="Month" disabled><option>Month</option></select>
+  </form>
+  <span id="status"></span>
+  <span class="spacer"></span>
+  <details class="settings">
+    <summary>Settings</summary>
+    <div class="settings-panel">
+      <label>Engine depth <input id="setDepth" type="number" min="8" max="24"></label>
+      <label>Parallel engines <input id="setEngines" type="number" min="1" max="16"></label>
+      <label>Better-move arrows <input id="setArrows" type="checkbox"></label>
+      <label>New puzzles per day <input id="setDaily" type="number" min="1" max="50"></label>
+      <label>Analyse automatically <select id="setAuto"><option value="all">All months</option><option value="month">Month on screen</option><option value="off">Off</option></select></label>
+      <p>Depth applies to new analyses. Each engine is one single-threaded Stockfish worker.</p>
+      <div><div id="cacheInfo" class="muted" style="font-size:12px"></div></div>
+      <button id="clearCache" type="button">Clear cached analyses</button>
+      <button id="clearPuzzles" type="button">Delete puzzles and their progress</button>
+      <div class="mac-only" id="phoneBox" hidden>
+        <label>Use on my iPhone <input id="setPhone" type="checkbox"></label>
+        <div id="phoneInfo"></div>
+      </div>
+    </div>
+  </details>
+</header>
+
+<nav class="bar">
+  <div class="tabs" role="tablist">
+    <button role="tab" data-view="games" aria-selected="true">Games</button>
+    <button role="tab" data-view="summary" aria-selected="false">Summary</button>
+    <button role="tab" data-view="puzzles" aria-selected="false">Puzzles <span class="badge" id="pzCount" hidden></span></button>
+    <button role="tab" data-view="patterns" aria-selected="false">Patterns</button>
+  </div>
+  <div class="filters">
+    <select id="fResult" aria-label="Result"><option value="all">All results</option><option value="W">Won</option><option value="L">Lost</option><option value="D">Drawn</option></select>
+    <select id="fColor" aria-label="Colour"><option value="all">Both colours</option><option value="w">As white</option><option value="b">As black</option></select>
+    <select id="fTc" aria-label="Time control"><option value="all">All time controls</option></select>
+    <label><input type="checkbox" id="fBlunders"> Has my blunder</label>
+  </div>
+  <span class="spacer"></span>
+  <span id="engineStatus"></span>
+  <div class="progress" title="Analysed games in the current filter"><i id="monthBar"></i></div>
+  <span id="monthProgress"></span>
+  <button id="analyseMonth" disabled>Analyse month</button>
+</nav>
+
+<main>
+  <section id="gamesView" class="games-view">
+    <aside class="panel list-col">
+      <div class="col-head"><span id="listCount" class="muted">No games loaded</span></div>
+      <ul id="gameList"><li class="empty">Enter a Chess.com username to load games.</li></ul>
+    </aside>
+
+    <section class="board-col">
+      <div class="panel player" id="playerTop"></div>
+      <div class="board-wrap">
+        <div id="evalBar" title=""><i></i></div>
+        <div id="board" class="cg-wrap"></div>
+      </div>
+      <div class="panel player" id="playerBottom"></div>
+      <div class="controls">
+        <button id="bFirst" title="First (Home)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+        <button id="bPrev" title="Previous (←)"><svg viewBox="0 0 24 24"><path d="M17 5v14L6 12z"/></svg></button>
+        <button id="bNext" title="Next (→)"><svg viewBox="0 0 24 24"><path d="M7 5v14l11-7z"/></svg></button>
+        <button id="bLast" title="Last (End)"><svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+        <button id="bMoment" class="primary" title="The next mistake or blunder that swung the game, by either side (↓)">Next key moment</button>
+      </div>
+      <div class="panel coach" id="coach"></div>
+      <div class="legend"><span><i style="background:#15781b"></i>better move</span><span><i style="background:#c33"></i>reply that punishes it</span><span><i style="background:#4a78c9"></i>hint (h)</span></div>
+      <div class="panel graph-wrap"><svg id="graph" class="evgraph" role="img" aria-label="Evaluation graph"></svg><div id="gTip" hidden></div></div>
+    </section>
+
+    <aside class="panel moves-col">
+      <div class="col-head">
+        <div class="opening" id="openingName">No game selected</div>
+        <div class="gsub" id="gameSub">Pick a game from the list.</div>
+        <div class="mh-tools" id="gameTools" hidden>
+          <label><input type="checkbox" id="onlyErrors"> Only my errors</label>
+          <button id="reanalyse" title="Discard the cached analysis and run again at the current depth">Re-analyse</button>
+          <button id="exportGame" title="Annotated PGN">PGN</button>
+          <a class="btn" id="ccLink" target="_blank" rel="noopener">Chess.com ↗</a>
+        </div>
+        <div class="pane-tabs" id="paneTabs" hidden>
+          <button data-pane="review" aria-pressed="false">Review</button>
+          <button data-pane="moves" aria-pressed="true">Moves</button>
+          <button data-pane="explorer" aria-pressed="false" title="What you and your opponents played from this position, across all your games">Explorer</button>
+        </div>
+      </div>
+      <ol id="moves"></ol>
+      <div id="explorer" class="explorer" hidden></div>
+      <div id="review" class="review" hidden></div>
+    </aside>
+  </section>
+
+  <section id="summaryView" class="summary" hidden></section>
+
+  <section id="patternsView" class="summary" hidden></section>
+
+  <section id="puzzleView" class="puzzle-view" hidden>
+    <div id="pBoard" class="cg-wrap"></div>
+    <aside class="panel pz" id="puzzlePanel"></aside>
+  </section>
+</main>
+<div id="toast" hidden></div>
+
+<script type="module">
+// Third-party files live in vendor/ (tools/vendor.mjs fetches them), so nothing loads from a CDN.
+import { Chess } from './vendor/chess.js';
+import { Chessground } from './vendor/chessground.js';
+import { MATE, readGame, terminalScore, Uci } from './core.mjs';
+
+// ---------- constants ----------
+// Stockfish 17.1 lite, single-threaded. Absolute URLs, because the engine runs in a blob: worker.
+const SF_JS = new URL('vendor/stockfish.js', location.href).href;
+const SF_WASM = new URL('vendor/stockfish.wasm', location.href).href;
+const CLAMP = 1000;   // evals are clamped to ±10 pawns before computing loss and accuracy
+const TH = { inaccuracy: 50, mistake: 100, blunder: 300 };
+const MIN_SWING = 8;  // win-chance points a move must throw away to become a puzzle or a key moment
+const TH_EXCELLENT = 20;
+const ERRORS = ['inaccuracy', 'mistake', 'blunder'];
+const GLYPH = { best: '★', excellent: '✓', good: '✓', book: 'book', inaccuracy: '?!', mistake: '?', blunder: '??' };
+const LABEL = { best: 'the best move', excellent: 'excellent', good: 'good', book: 'a book move', inaccuracy: 'an inaccuracy', mistake: 'a mistake', blunder: 'a blunder' };
+const VAL = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+const PIECE = { p: 'a pawn', n: 'a knight', b: 'a bishop', r: 'a rook', q: 'the queen' };
+const NB = ' '; // joins PGN tokens that must not be split across lines
+const NAG = { inaccuracy: '$6', mistake: '$2', blunder: '$4' };
+const DRAWS = new Set(['agreed', 'repetition', 'stalemate', 'insufficient', '50move', 'timevsinsufficient']);
+const SETTINGS = 'cca:settings';
+
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const clamp = (s) => Math.max(-CLAMP, Math.min(CLAMP, s));
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+// Yields to the event loop. A MessageChannel instead of setTimeout, because background tabs throttle timers to once a minute.
+const sleep = () => new Promise((r) => { const c = new MessageChannel(); c.port1.onmessage = () => r(); c.port2.postMessage(0); });
+
+// ---------- storage ----------
+const store = {
+  get(k) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } },
+  del(k) { try { localStorage.removeItem(k); } catch {} },
+  keys(p) { try { return Object.keys(localStorage).filter((k) => k.startsWith(p)); } catch { return []; } },
+};
+
+const cores = navigator.hardwareConcurrency || 2;
+const touch = matchMedia('(pointer: coarse)').matches;
+const settings = Object.assign(
+  // A phone analyses only the game you open by default: the Mac does the bulk and shares it.
+  { user: '', depth: 18, engines: Math.max(1, Math.min(4, cores - 1)), arrows: true, daily: 10, auto: touch ? 'off' : 'all' },
+  store.get(SETTINGS),
+);
+const saveSettings = () => store.set(SETTINGS, settings);
+
+// Analyses and puzzles live in IndexedDB, which has room for years of games; localStorage holds
+// about 5 MB, a few months of analyses. Settings stay in localStorage.
+const idb = new Promise((resolve, reject) => {
+  const open = indexedDB.open('chess-analyser', 1);
+  open.onupgradeneeded = () => {
+    open.result.createObjectStore('analyses'); // key: game url
+    open.result.createObjectStore('puzzles', { keyPath: 'id' }).createIndex('url', 'url');
+  };
+  open.onsuccess = () => resolve(open.result);
+  open.onerror = () => reject(open.error);
+});
+const req = (r) => new Promise((resolve, reject) => { r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error); });
+
+// Runs `work(store)` in one transaction and resolves with its result once the transaction has committed.
+async function tx(names, mode, work) {
+  const t = (await idb).transaction(names, mode);
+  const committed = new Promise((resolve, reject) => { t.oncomplete = resolve; t.onerror = t.onabort = () => reject(t.error); });
+  let out;
+  try { out = await work((name) => t.objectStore(name)); } catch (e) { try { t.abort(); } catch {} throw e; }
+  await committed;
+  return out;
+}
+
+// One-time fixes for data saved by earlier versions.
+async function migrate() {
+  // Analyses and puzzles used to live in localStorage.
+  const prefix = 'cca:a:', keys = store.keys(prefix), old = store.get('cca:puzzles');
+  if (keys.length || old) {
+    await tx(['analyses', 'puzzles'], 'readwrite', (os) => {
+      for (const k of keys) os('analyses').put(store.get(k), k.slice(prefix.length));
+      for (const p of Object.values(old || {})) os('puzzles').put(p);
+    });
+    keys.forEach(store.del);
+    store.del('cca:puzzles');
+  }
+  // Misses used to be due straight away and carried no `seen` time; give them the one-week rule.
+  if (!store.get('cca:misses-weekly')) {
+    await tx('puzzles', 'readwrite', async (os) => {
+      for (const p of await req(os('puzzles').getAll())) {
+        if (p.tries && p.box === 0 && !p.seen) os('puzzles').put({ ...p, seen: p.due, due: p.due + 7 * 864e5 });
+      }
+    });
+    store.set('cca:misses-weekly', true);
+  }
+  store.del('cca:coach'); // the Gemini coach report is gone
+  // Mistakes gained a kind and one derivation stamp (sig) in place of v and at; opening cards an
+  // account in their id, a single `from` game and a `cost`.
+  if (!store.get('cca:kinds')) {
+    await tx('puzzles', 'readwrite', async (os) => {
+      for (const p of await req(os('puzzles').getAll())) {
+        if (p.kind === 'opening') {
+          const { game, gid, ym, ply, end, opp, oppRating, tc, drop, v, ...card } = p;
+          os('puzzles').delete(p.id);
+          os('puzzles').put({ ...card, id: cardId(p.user, p.id.slice('open:'.length)), from: { url: game, gid, ym, ply }, cost: drop - 10 * p.slips });
+        } else if (!p.kind) {
+          const { v, at, ...mistake } = p;
+          os('puzzles').put({ ...mistake, kind: 'mistake', sig: `${v}:${at}` });
+        }
+      }
+    });
+    store.set('cca:kinds', true);
+  }
+}
+
+// Open tabs tell each other about the analyses and puzzle progress they save.
+const channel = new BroadcastChannel('chess-analyser');
+
+// ---------- sync with the Mac ----------
+// When the Mac app serves the page, to the Mac itself or to a paired iPhone, each device posts what it
+// learns as one JSON line: finished analyses go to data/<user>/<month>.live.ndjson and puzzle attempts
+// to data/<user>/progress.ndjson. Every device reads both back, so the Mac and the phone share one
+// history. A post that can't reach the Mac (asleep, or the phone left the Wi-Fi) waits in an outbox.
+const OUTBOX = 'cca:outbox';
+let sending = false;
+
+function send(path, body) {
+  store.set(OUTBOX, [...(store.get(OUTBOX) || []), { k: `${Date.now()}.${Math.random()}`, path, body }].slice(-1000));
+  sendOutbox();
+}
+
+async function sendOutbox() {
+  if (sending) return;
+  sending = true;
+  try {
+    for (let item; (item = store.get(OUTBOX)?.[0]);) {
+      const r = await fetch(item.path, { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify(item.body) }).catch(() => null);
+      if (!r || r.status >= 500) break; // try again with the next post
+      // Sent, or refused for good (no Mac app behind the page, or not paired).
+      store.set(OUTBOX, (store.get(OUTBOX) || []).filter((x) => x.k !== item.k));
+    }
+  } finally {
+    sending = false;
+  }
+}
+
+// A JSON-lines file from data/, or nothing when the server has none.
+async function readLines(path) {
+  const text = await fetch(path, { cache: 'no-store' }).then((r) => (r.ok ? r.text() : '')).catch(() => '');
+  return text.split('\n').flatMap((l) => { try { return l ? [JSON.parse(l)] : []; } catch { return []; } });
+}
+
+const PROGRESS = ['box', 'due', 'seen', 'tries', 'wins', 'sv'];
+const progressOf = (p) => Object.fromEntries(PROGRESS.map((k) => [k, p[k]]));
+// Whichever practice history is newer: every attempt stamps `seen`.
+const later = (a, b) => (b && (b.seen || 0) > (a?.seen || 0) ? b : a);
+const postAttempt = (p) => send(`api/sync/progress?user=${encodeURIComponent(p.user || accountUser())}`, { id: p.id, ...progressOf(p) });
+
+// Every device's puzzle attempts, the latest per puzzle; read once per user unless `fresh`.
+const attempts = new Map();
+function attemptsOf(user, fresh = false) {
+  if (fresh || !attempts.has(user)) {
+    attempts.set(user, readLines(`data/${encodeURIComponent(user)}/progress.ndjson`).then((rows) => {
+      const m = new Map();
+      for (const x of rows) m.set(x.id, later(m.get(x.id), upgrade(x)));
+      return m;
+    }));
+  }
+  return attempts.get(user);
+}
+
+// Brings the saved puzzles up to date with attempts made on other devices.
+async function mergeAttempts(user, fresh = false) {
+  const theirs = await attemptsOf(user, fresh);
+  if (!theirs.size) return;
+  const changed = await tx('puzzles', 'readwrite', async (os) => {
+    const saved = await Promise.all([...theirs.keys()].map((id) => req(os('puzzles').get(id))));
+    return saved.flatMap((p) => {
+      const t = p && theirs.get(p.id);
+      if (!p || later(p, t) === p) return [];
+      const q = { ...p, ...progressOf(t) };
+      os('puzzles').put(q);
+      return [q];
+    });
+  });
+  if (changed.length) applyPuzzles([{ fresh: changed, gone: [] }], true);
+}
+
+// ---------- scoring ----------
+const winPct = (cp) => 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * cp)) - 1);
+const moveAcc = (drop) => Math.min(100, Math.max(0, 103.1668100711649 * Math.exp(-0.04354415386753951 * Math.max(0, drop)) - 3.166924740191411 + 1));
+const isMate = (s) => Math.abs(s) > MATE - 1000;
+
+function fmtEval(s) {
+  if (s == null) return '';
+  if (isMate(s)) { const n = MATE - Math.abs(s); return n === 0 ? '#' : (s > 0 ? '#' : '#-') + n; }
+  return (s > 0 ? '+' : '') + (s / 100).toFixed(1);
+}
+function pgnEval(s) {
+  if (isMate(s)) return (s > 0 ? '#' : '#-') + (MATE - Math.abs(s));
+  return (s / 100).toFixed(2);
+}
+
+// ---------- review ----------
+// The engine's output for a game: one [score, line] per position, finished or still filling in.
+const evs = (g) => g.analysis?.ev || g.work?.ev || null;
+
+// review(g).moves[i] judges g.moves[i], or is null until both of its positions are analysed.
+// A finished analysis never changes, so its review is memoised on the analysis object and
+// replacing or clearing the analysis is all it takes to invalidate it.
+const reviews = new WeakMap();
+function review(g) {
+  if (reviews.has(g.analysis)) return reviews.get(g.analysis);
+  const ev = evs(g);
+  if (!ev) return null;
+  const moves = g.moves.map((m, i) => judge(g, m, i, ev[i], ev[i + 1]));
+  const r = { moves, stats: g.analysis ? gameStats(g, moves) : null };
+  if (g.analysis) reviews.set(g.analysis, r);
+  return r;
+}
+
+// The label of a move that threw away `loss` centipawns; `top` means it was the engine's own choice.
+function labelFor(loss, top) {
+  if (top) return 'best';
+  if (loss >= TH.blunder) return 'blunder';
+  if (loss >= TH.mistake) return 'mistake';
+  if (loss >= TH.inaccuracy) return 'inaccuracy';
+  return loss < TH_EXCELLENT ? 'excellent' : 'good';
+}
+
+// `before`/`after` are white-POV scores around the move; `line` is the engine's line before it, `reply` after it.
+function judge(g, m, i, a, b) {
+  if (!a || !b) return null;
+  const sign = m.color === 'w' ? 1 : -1;
+  const before = sign * clamp(a[0]), after = sign * clamp(b[0]);
+  const loss = Math.max(0, before - after);
+  const best = a[1].split(' ')[0];
+  const label = i + 1 <= g.bookPly && loss < TH.blunder ? 'book' : labelFor(loss, best && m.uci === best);
+  return {
+    label, loss, best, err: ERRORS.includes(label), acc: moveAcc(winPct(before) - winPct(after)),
+    before: a[0], after: b[0], line: a[1], reply: b[1],
+  };
+}
+
+function sideStats(list) {
+  const r = { n: list.length, accuracy: null, acpl: 0, best: 0, excellent: 0, good: 0, book: 0, inaccuracy: 0, mistake: 0, blunder: 0 };
+  if (!list.length) return r;
+  let sum = 0, inv = 0, loss = 0;
+  for (const j of list) {
+    sum += j.acc; inv += 1 / Math.max(j.acc, 1); loss += Math.min(j.loss, CLAMP);
+    r[j.label]++;
+  }
+  r.accuracy = (sum / list.length + list.length / inv) / 2;
+  r.acpl = loss / list.length;
+  return r;
+}
+
+function gameStats(g, moves) {
+  const side = (c) => sideStats(moves.filter((j, i) => j && g.moves[i].color === c));
+  const w = side('w'), b = side('b');
+  return { w, b, me: g.myColor === 'w' ? w : b, opp: g.myColor === 'w' ? b : w };
+}
+
+// ---------- engine lines ----------
+// Replays an engine line (uci moves) from a position, stopping at the first illegal move.
+// Memoised because every render asks for the same few lines again.
+const lines = new Map();
+function playLine(fen, pv) {
+  const key = fen + '|' + pv;
+  if (lines.has(key)) return lines.get(key);
+  const c = new Chess(fen), moves = [], fens = [fen];
+  for (const u of (pv || '').split(' ').filter(Boolean)) {
+    try { moves.push(c.move({ from: u.slice(0, 2), to: u.slice(2, 4), promotion: u[4] })); } catch { break; }
+    fens.push(c.fen());
+  }
+  const line = { moves, fens, mate: c.isCheckmate() };
+  lines.set(key, line);
+  return line;
+}
+
+// "12. Nf3 Nc6 13. Bb5", or "12… Nc6 13. Bb5" when the line starts with Black.
+function numberedSan(line, ellipsis) {
+  return line.moves.map((m, k) => {
+    const [, side, , , , no] = line.fens[k].split(' ');
+    return side === 'w' ? `${no}.${NB}${m.san}` : k === 0 ? `${no}${ellipsis}${NB}${m.san}` : m.san;
+  });
+}
+
+// `net` is the material the side to move comes out ahead by, counted only after the other side
+// has replied, so a capture that gets recaptured nets zero.
+function lineFacts(fen, pv) {
+  const line = playLine(fen, pv), side = fen.split(' ')[1];
+  let net = 0;
+  const took = [], lost = [], settled = { net: 0, took: [], lost: [] };
+  for (const m of line.moves) {
+    const v = (m.captured ? VAL[m.captured] : 0) + (m.promotion ? VAL[m.promotion] - 1 : 0);
+    if (m.color === side) { net += v; if (m.captured) took.push(m.captured); }
+    else {
+      net -= v; if (m.captured) lost.push(m.captured);
+      Object.assign(settled, { net, took: [...took], lost: [...lost] });
+    }
+  }
+  return { san: line.moves.map((m) => m.san), mate: line.mate, ...settled };
+}
+
+function materialPhrase(f) {
+  if (f.mate) return 'mates';
+  if (f.net <= 0) return '';
+  if (f.took.length === 1 && !f.lost.length) return `wins ${PIECE[f.took[0]]}`;
+  if (f.net === 2 && f.took.includes('r') && f.lost.some((p) => p === 'n' || p === 'b')) return 'wins the exchange';
+  return f.net === 1 ? 'wins a pawn' : `wins material (+${f.net})`;
+}
+
+function standing(s) {
+  if (isMate(s)) {
+    const n = MATE - Math.abs(s);
+    return n === 0 ? 'checkmate' : `mate in ${n} for ${s > 0 ? 'White' : 'Black'}`;
+  }
+  const a = Math.abs(s), side = s > 0 ? 'White' : 'Black';
+  if (a < 50) return 'about equal';
+  if (a < 150) return `slightly better for ${side}`;
+  if (a < 300) return `better for ${side}`;
+  return `winning for ${side}`;
+}
+
+// ---------- mistake facts ----------
+// What Stockfish says went wrong with one of your moves: the pattern tags, the phase, the piece and the
+// opening, which Patterns counts and drills.
+const TAGS = {
+  'hung-piece': 'Left a piece to be taken',
+  'hung-pawn': 'Dropped a pawn',
+  'fork': 'Walked into a fork',
+  'check': 'Allowed a check that wins something',
+  'mated': 'Walked into a mating attack',
+  'threw-win': 'Threw away a winning position',
+  'missed-piece': 'Missed winning material',
+  'missed-mate': 'Missed a mate',
+  'time': 'Under time pressure',
+};
+const PIECE_NAME = { p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king' };
+
+function mistakeFacts(g, m, i, j) {
+  const sign = m.color === 'w' ? 1 : -1, before = clamp(sign * j.before), after = clamp(sign * j.after);
+  const reply = lineFacts(g.fens[i + 1], j.reply), better = lineFacts(g.fens[i], j.line);
+  const tags = [];
+  if (isMate(j.after) && sign * j.after < 0) tags.push('mated');
+  else if (reply.net >= 3) tags.push('hung-piece');
+  else if (reply.net >= 1) tags.push('hung-pawn');
+  if (isMate(j.before) && sign * j.before > 0 && !(isMate(j.after) && sign * j.after > 0)) tags.push('missed-mate');
+  else if (better.net >= 3) tags.push('missed-piece');
+  // Fork: the punishing reply attacks two or more of your pieces worth a knight or more, or the king.
+  const hit = playLine(g.fens[i + 1], j.reply).moves[0];
+  if (hit) {
+    const c = new Chess(playLine(g.fens[i + 1], j.reply).fens[1]);
+    const targets = c.board().flat().filter((p) => p && p.color === m.color && (VAL[p.type] >= 3 || p.type === 'k'));
+    if (targets.filter((p) => c.attackers(p.square, hit.color).includes(hit.to)).length >= 2) tags.push('fork');
+    if (hit.san.includes('+') && reply.net > 0) tags.push('check');
+  }
+  if (before >= 300 && after < 150) tags.push('threw-win');
+  const clock = clockSecs(m.clk), base = +String(g.timeControl).split('+')[0];
+  if (clock != null && base && !g.timeControl.includes('/') && (clock < 30 || clock < base * 0.1)) tags.push('time');
+  return { tags, phase: phaseOf(g, i), piece: m.piece, opening: g.opening ? shortOpening(g.opening.name) : '' };
+}
+
+// The phase a move is played in: the first 10 moves are the opening, and six or fewer pieces other
+// than kings and pawns left on the board make an endgame.
+function phaseOf(g, i) {
+  if (i < 20) return 'opening';
+  const officers = new Chess(g.fens[i]).board().flat().filter((p) => p && p.type !== 'p' && p.type !== 'k').length;
+  return officers <= 6 ? 'endgame' : 'middlegame';
+}
+
+const clockSecs = (c) => { const x = c?.match(/(\d+):(\d+):([\d.]+)/); return x ? +x[1] * 3600 + +x[2] * 60 + +x[3] : null; };
+
+const TACTICS = new Set(['hung-piece', 'fork', 'check', 'mated', 'missed-piece', 'missed-mate']);
+
+// ---------- openings ----------
+let ECO = null;
+const ecoReady = fetch('eco.json').then((r) => (r.ok ? r.json() : null)).then((j) => (ECO = j)).catch(() => null);
+const posKey = (fen) => fen.split(' ').slice(0, 3).join(' ');
+
+function ecoUrlName(u) {
+  const s = decodeURIComponent((u || '').split('/openings/')[1] || '');
+  return s.replace(/\.{2,}\d.*$/, '').replace(/-\d+\..*$/, '').replace(/-/g, ' ').trim() || null;
+}
+const shortOpening = (n) => n.split(':')[0];
+
+// ---------- games ----------
+function normalise(raw, user) {
+  const myColor = raw.white.username.toLowerCase() === user.toLowerCase() ? 'w' : 'b';
+  const me = myColor === 'w' ? raw.white : raw.black;
+  const opp = myColor === 'w' ? raw.black : raw.white;
+  const result = me.result === 'win' ? 'W' : DRAWS.has(me.result) ? 'D' : 'L';
+  return {
+    url: raw.url, id: raw.url.split('/').slice(-2).join('/'), pgn: raw.pgn, end: raw.end_time * 1000,
+    timeClass: raw.time_class, timeControl: raw.time_control, rated: raw.rated, ecoUrl: raw.eco,
+    sides: { w: raw.white, b: raw.black }, myColor, me, opp, result,
+  };
+}
+
+function header(pgn, name) {
+  const m = pgn.match(new RegExp(`\\[${name} "([^"]*)"\\]`));
+  return m ? m[1] : '';
+}
+
+function parse(g) {
+  const { moves, fens, terminal, comments } = readGame(Chess, g.pgn);
+  g.fens = fens;
+  g.terminal = terminal;
+  g.moves = moves.map((m) => ({
+    san: m.san, uci: m.lan, from: m.from, to: m.to, color: m.color, piece: m.piece, mine: m.color === g.myColor,
+    no: +m.before.split(' ')[5],
+    clk: (comments.get(m.after) || '').match(/\[%clk ([^\]]+)\]/)?.[1] || null,
+  }));
+  g.opening = null; g.bookPly = 0;
+  if (ECO) {
+    for (let i = 1; i < g.fens.length && i <= 50; i++) {
+      const e = ECO[posKey(g.fens[i])];
+      if (e) { g.opening = { eco: e[0], name: e[1] }; g.bookPly = i; }
+    }
+  }
+  if (!g.opening) {
+    const name = ecoUrlName(g.ecoUrl);
+    if (name) g.opening = { eco: header(g.pgn, 'ECO'), name };
+  }
+  g.termination = header(g.pgn, 'Termination');
+  g.resultTag = header(g.pgn, 'Result') || '*';
+}
+
+const fits = (g, a) => !g.broken && Array.isArray(a?.ev) && a.ev.length === g.fens.length;
+
+// Gives each game its saved analysis, if it still matches the game's positions.
+async function attachAll(games) {
+  const saved = await tx('analyses', 'readonly', (os) => Promise.all(games.map((g) => req(os('analyses').get(g.url)))));
+  games.forEach((g, i) => { if (fits(g, saved[i])) g.analysis = saved[i]; });
+}
+
+const moveNo = (m) => m.no + (m.color === 'w' ? '.' : '…');
+const moveName = (m) => `${moveNo(m)} ${m.san}`;
+
+// ---------- engine and scheduler ----------
+// Jobs are single positions, so one game spreads across every engine. Priority: puzzle probes, then the
+// game on screen, then the queue of every other game. Only the tab holding the background lock
+// works the queue, or each open tab would run its own engines on the same games.
+const sched = { pool: [], queue: [], probes: [], focus: null, paused: settings.auto === 'off', leader: !navigator.locks, error: null, stamps: [] };
+navigator.locks?.request('chess-analyser-background', () => new Promise(() => {
+  sched.leader = true;
+  kick();
+  updateMonthControls();
+}));
+
+function workerEngine() {
+  // The Stockfish loader reads the wasm location from the worker URL fragment.
+  const src = URL.createObjectURL(new Blob([`importScripts(${JSON.stringify(SF_JS)});`], { type: 'text/javascript' }));
+  const worker = new Worker(src + '#' + encodeURIComponent(SF_WASM));
+  const failed = new Promise((_, rej) => { worker.onerror = (e) => rej(new Error(e.message || 'Engine worker failed to load')); });
+  const uci = new Uci((cmd) => worker.postMessage(cmd), failed);
+  worker.onmessage = (e) => uci.onLine(String(e.data));
+  uci.terminate = () => worker.terminate();
+  return uci;
+}
+
+function newWork(g) {
+  const n = g.fens.length;
+  const ev = new Array(n).fill(null);
+  const todo = [...Array(n).keys()];
+  if (g.terminal != null) { ev[n - 1] = [g.terminal, '']; todo.pop(); }
+  return { depth: settings.depth, ev, todo, done: n - todo.length, engine: '' };
+}
+
+// Puts the game on screen ahead of the queue. `restart` throws away a finished analysis first.
+function analyse(g, restart = false) {
+  if (restart) {
+    tx('analyses', 'readwrite', (os) => { os('analyses').delete(g.url); });
+    g.analysis = null; g.work = null;
+  }
+  if (g.analysis) return;
+  g.work ||= newWork(g);
+  sched.focus = g;
+  kick();
+}
+
+// Adds games to the queue, at the front for the month on screen. Games already queued move instead of doubling up.
+function queueGames(games, front = false) {
+  const add = games.filter((g) => !g.analysis && !g.broken);
+  add.forEach((g) => { g.work ||= newWork(g); });
+  const adding = new Set(add), rest = sched.queue.filter((g) => !adding.has(g));
+  sched.queue.splice(0, Infinity, ...(front ? [...add, ...rest] : [...rest, ...add]));
+  kick();
+}
+
+function clearQueue() {
+  sched.queue.length = 0;
+  sched.focus = null;
+}
+
+const queueRunning = () => !sched.paused && sched.leader && sched.queue.length > 0;
+
+// Scores one position ahead of all game analysis. The puzzle checker waits on it.
+function probe(fen, depth, pvLen) {
+  if (sched.error) return Promise.reject(sched.error);
+  return new Promise((resolve, reject) => { sched.probes.push({ fen, depth, pvLen, settle: resolve, fail: reject }); kick(); });
+}
+
+// A job is a position plus what to do with the engine's answer, or with its failure.
+function nextJob() {
+  if (sched.probes.length) return sched.probes.shift();
+  const list = sched.focus ? [sched.focus] : [];
+  if (!sched.paused && sched.leader) list.push(...sched.queue);
+  for (const g of list) {
+    const w = g.work;
+    if (!w?.todo.length) continue;
+    const ply = w.todo.shift();
+    return { fen: g.fens[ply], depth: w.depth, settle: (r, engine) => record(g, w, ply, r, engine), fail: () => w.todo.unshift(ply) };
+  }
+  return null;
+}
+
+function record(g, w, ply, r, engine) {
+  if (g.work !== w) return; // game was re-analysed or dropped meanwhile
+  w.ev[ply] = r; w.done++; w.engine = engine;
+  sched.stamps.push(performance.now());
+  if (w.done === w.ev.length) finish(g); else dirty(g);
+}
+
+function kick() {
+  if (sched.error) return;
+  while (sched.pool.length < settings.engines) {
+    try { sched.pool.push(workerEngine()); } catch (e) { failEngine(e); return; }
+  }
+  for (const e of sched.pool) if (!e.running) run(e);
+  updateStatus();
+}
+
+async function run(e) {
+  e.running = true;
+  try {
+    for (let job; !e.retired && (job = nextJob());) {
+      let r;
+      try { r = await e.analyse(job.fen, job.depth, job.pvLen); }
+      catch (err) { job.fail(err); throw err; }
+      job.settle(r, e.name);
+    }
+  } catch (err) {
+    failEngine(err);
+  } finally {
+    e.running = false;
+    if (e.retired) e.terminate();
+    updateStatus();
+  }
+}
+
+function failEngine(err) {
+  sched.error = err;
+  sched.pool.splice(0).forEach((e) => e.terminate());
+  sched.probes.splice(0).forEach((p) => p.fail(err));
+  toast('Engine failed: ' + (err?.message || err));
+  updateStatus();
+}
+
+function resizePool() {
+  for (const e of sched.pool.splice(settings.engines)) { e.retired = true; if (!e.running) e.terminate(); }
+  kick();
+}
+
+function finish(g) {
+  const w = g.work;
+  g.analysis = { v: 1, d: w.depth, e: w.engine, t: Date.now(), ev: w.ev };
+  g.work = null;
+  const i = sched.queue.indexOf(g);
+  if (i >= 0) sched.queue.splice(i, 1);
+  if (sched.focus === g) sched.focus = null;
+  tx('analyses', 'readwrite', (os) => { os('analyses').put(g.analysis, g.url); }).then(
+    () => channel.postMessage({ analysed: g.url }),
+    () => { sched.paused = true; toast("Couldn't save the analysis, so background analysis is paused. Free up disk space, then press Analyse."); },
+  );
+  send(`api/sync/analysis?user=${encodeURIComponent(g.me.username.toLowerCase())}&ym=${g.ym}`, { url: g.url, a: g.analysis });
+  harvestGames([g]);
+  gamesChanged();
+  dirty(g, true);
+}
+
+function rate() {
+  const now = performance.now();
+  while (sched.stamps.length && now - sched.stamps[0] > 15000) sched.stamps.shift();
+  return sched.stamps.length / 15;
+}
+
+// ---------- state ----------
+const S = {
+  user: '', ym: '', archives: [], games: [], byUrl: new Map(), cur: null, ply: 0, flipped: false, view: 'games',
+  filters: { result: 'all', color: 'all', tc: 'all', blunders: false }, onlyErrors: false, hint: false, line: null, token: 0, allLoaded: false,
+};
+
+// ---------- chess.com ----------
+// Chess.com answers are kept in the browser's Cache Storage (only on this Mac: a phone over plain
+// http has none). A month saved after it ended is final, so it's read from there without asking
+// Chess.com; that is most of the account, which makes loading faster. Anything else is fetched, and
+// falls back to its saved copy when Chess.com can't be reached.
+const monthEnd = (ym) => Date.UTC(+ym.slice(0, 4), +ym.slice(5, 7), 1); // the next month's first moment, UTC
+async function api(path, init) {
+  const url = 'https://api.chess.com/pub/' + path, ym = path.match(/games\/(\d{4})\/(\d{2})$/)?.slice(1).join('-');
+  const box = await globalThis.caches?.open('chess-com').catch(() => null);
+  const saved = await box?.match(url).catch(() => null);
+  if (saved && ym && +saved.headers.get('x-saved') > monthEnd(ym) + 864e5) return saved.json();
+  let r;
+  try { r = await fetch(url, init); } catch {
+    if (saved) return saved.json();
+    throw new Error("Can't reach Chess.com, and this isn't saved from an earlier visit.");
+  }
+  if (r.status === 404) throw new Error('Chess.com has no data for that user or month.');
+  if (r.status === 429) { if (saved) return saved.json(); throw new Error('Chess.com rate limit hit. Try again in a minute.'); }
+  if (!r.ok) throw new Error('Chess.com API error ' + r.status);
+  const body = await r.text();
+  box?.put(url, new Response(body, { headers: { 'content-type': 'application/json', 'x-saved': String(Date.now()) } })).catch(() => {});
+  return JSON.parse(body);
+}
+
+// Analyses saved on the Mac: games analysed offline by tools/batch.mjs in data/<user>/<yyyy-mm>.json,
+// and games analysed in any browser since, shared through <yyyy-mm>.live.ndjson. A deeper analysis
+// wins, then a newer one, so a re-analysis on one device reaches the others.
+const better = (a, b) => !b || a.d > b.d || (a.d === b.d && a.t > b.t);
+async function importBatch(user, ym) {
+  const base = `data/${encodeURIComponent(user.toLowerCase())}/${ym}`;
+  const [batch, live] = await Promise.all([
+    fetch(base + '.json', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : {})).then((j) => Object.entries(j.games || {})).catch(() => []),
+    readLines(base + '.live.ndjson').then((rows) => rows.map((x) => [x.url, x.a])),
+  ]);
+  const best = new Map();
+  for (const [url, a] of [...batch, ...live]) if (a?.ev && better(a, best.get(url))) best.set(url, a);
+  if (!best.size) return 0;
+  return tx('analyses', 'readwrite', async (os) => {
+    const entries = [...best], cur = await Promise.all(entries.map(([url]) => req(os('analyses').get(url))));
+    let n = 0;
+    entries.forEach(([url, a], i) => { if (better(a, cur[i])) { os('analyses').put(a, url); n++; } });
+    return n;
+  });
+}
+
+async function start(user, ym, gameId) {
+  const token = ++S.token;
+  try {
+    const sameUser = user.toLowerCase() === S.user.toLowerCase() && S.archives.length;
+    if (!sameUser) {
+      clearQueue(); months.clear(); allGames.clear(); tree.clear(); treed.clear();
+      S.allLoaded = false;
+      setStatus('Loading archives…');
+      const j = await api(`player/${encodeURIComponent(user.toLowerCase())}/games/archives`);
+      if (token !== S.token) return;
+      S.archives = archiveMonths(j);
+      S.user = user;
+      fillMonths();
+      storageReady.then(() => mergeAttempts(accountUser()));
+      // Adding to the home screen starts the app for this account.
+      $('#manifest').href = 'manifest.webmanifest?user=' + encodeURIComponent(accountUser());
+    }
+    if (!S.archives.length) { setStatus(`${user} has no games.`); return; }
+    if (!S.archives.includes(ym)) ym = S.archives[0];
+    $('#month').value = ym;
+    settings.user = user; saveSettings();
+    await loadMonth(ym, gameId, token);
+  } catch (err) {
+    if (token === S.token) setStatus(err.message);
+  }
+}
+
+// Each month is fetched and parsed once per session, and its game objects are shared by the list,
+// the background queue and the puzzles, so progress shows wherever a game appears.
+const months = new Map();
+const allGames = new Map(); // url -> game, across every loaded month
+
+// Every position your games reached in their first TREE_PLIES plies, with the game and ply of each
+// visit, so the explorer and the opening trainer can ask what happened there across all your games.
+const TREE_PLIES = 40;
+const tree = new Map(); // posKey -> [{ g, ply }]
+const treed = new Set();
+function addToTree(g) {
+  if (g.broken || treed.has(g.url)) return;
+  treed.add(g.url);
+  for (let ply = 0; ply < Math.min(TREE_PLIES, g.moves.length); ply++) {
+    const k = posKey(g.fens[ply]);
+    if (!tree.has(k)) tree.set(k, []);
+    tree.get(k).push({ g, ply });
+  }
+}
+function gamesOf(ym) {
+  if (!months.has(ym)) months.set(ym, fetchMonth(S.user, ym).catch((e) => { months.delete(ym); throw e; }));
+  return months.get(ym);
+}
+
+async function fetchMonth(user, ym) {
+  const [y, m] = ym.split('-');
+  const [j, imported] = await Promise.all([
+    api(`player/${encodeURIComponent(user.toLowerCase())}/games/${y}/${m}`), storageReady.then(() => importBatch(user, ym)), ecoReady,
+  ]);
+  const raw = (j.games || []).filter((x) => x.rules === 'chess');
+  const games = (await addGames(user, ym, raw)).sort((a, b) => b.end - a.end);
+  return { games, imported, skipped: (j.games || []).length - raw.length };
+}
+
+const archiveMonths = (j) => j.archives.map((u) => u.slice(-7).replace('/', '-')).reverse(); // newest first
+
+// Turns Chess.com games into game objects with their saved analyses, and adds them to the account:
+// the explorer's tree and the puzzles. Parsing replays every move, a few ms per game; yielding every
+// 8 ms keeps the page responsive while the whole account loads.
+async function addGames(user, ym, raw) {
+  const games = [];
+  let slice = performance.now();
+  for (const x of raw) {
+    const g = normalise(x, user);
+    g.ym = ym;
+    try { parse(g); } catch { g.broken = true; }
+    games.push(g);
+    if (performance.now() - slice > 8) { await sleep(); slice = performance.now(); }
+  }
+  await attachAll(games);
+  games.forEach((g) => { allGames.set(g.url, g); addToTree(g); });
+  await harvestGames(games);
+  return games;
+}
+
+// Picks up games played since the page loaded. Each month is fetched once per session, so this asks
+// Chess.com again for the archive list (a month may have begun) and the newest month, and adds only
+// the games not seen yet; everything already loaded keeps its state. Runs on Load, when the tab comes
+// back into view, and every few minutes while it's visible. Your newest game stays open if it was.
+let lastRefresh = 0;
+async function refreshLatest(force = false) {
+  const user = S.user, token = S.token;
+  if (!user || !S.archives.length || (!force && Date.now() - lastRefresh < 30000)) return;
+  lastRefresh = Date.now();
+  const name = encodeURIComponent(user.toLowerCase());
+  try {
+    const archives = archiveMonths(await api(`player/${name}/games/archives`, { cache: 'no-cache' }));
+    if (token !== S.token) return;
+    if (archives[0] !== S.archives[0]) { S.archives = archives; fillMonths(); $('#month').value = S.ym; }
+    const ym = S.archives[0], [y, m] = ym.split('-');
+    const month = await gamesOf(ym);
+    const j = await api(`player/${name}/games/${y}/${m}`, { cache: 'no-cache' });
+    const fresh = (j.games || []).filter((x) => x.rules === 'chess' && !allGames.has(x.url));
+    if (token !== S.token || !fresh.length) return;
+    const newest = S.cur === month.games[0] && S.ply === 0 && !S.line;
+    const added = await addGames(user, ym, fresh);
+    if (token !== S.token) return;
+    month.games.push(...added);
+    month.games.sort((a, b) => b.end - a.end);
+    if (S.ym === ym) {
+      added.forEach((g) => S.byUrl.set(g.url, g));
+      fillTimeClasses();
+      renderList();
+      if (newest) select(month.games[0]);
+    }
+    if (settings.auto === 'all' || (settings.auto === 'month' && S.ym === ym)) queueGames(added, true);
+    updateMonthControls();
+    gamesChanged();
+    toast(added.length === 1 ? `New game: ${added[0].opp.username} (${{ W: 'won', D: 'drawn', L: 'lost' }[added[0].result]})` : `${added.length} new games`);
+  } catch { /* offline or rate limited: the next refresh tries again */ }
+}
+
+async function loadMonth(ym, gameId, token) {
+  S.ym = ym; S.games = []; S.byUrl.clear(); S.cur = null;
+  renderList(); renderGame();
+  setStatus('Loading ' + monthLabel(ym) + '…');
+  const { games, imported, skipped } = await gamesOf(ym);
+  if (token !== S.token) return;
+  S.games = games;
+  games.forEach((g) => S.byUrl.set(g.url, g));
+  fillTimeClasses();
+  renderList();
+  // A link to a game opens it; otherwise the newest game of the month.
+  const target = (gameId && games.find((g) => g.id === gameId)) || games.find((g) => !g.broken);
+  if (target) select(target); else renderGame();
+  if (S.view === 'summary') renderSummary();
+  setStatus(`${games.length} games${skipped ? `, ${skipped} variant games skipped` : ''}${imported ? `, ${imported} analyses imported` : ''}`);
+  setHash();
+  loadAccount(token);
+  updateMonthControls();
+}
+
+// With a month on screen, the rest of the account loads in the background, newest month first, so
+// puzzles and patterns cover every analysed game. The auto setting decides what gets analysed: every
+// month, the month on screen (always at the front of the queue), or only the game you open.
+// A newer call (another month, user or setting) supersedes an older one still fetching months.
+let autoRun = 0;
+async function loadAccount(token) {
+  const run = ++autoRun;
+  if (settings.auto !== 'off') queueGames(S.games, true);
+  for (const ym of S.archives) {
+    if (ym === S.ym) continue;
+    let res;
+    try { res = await gamesOf(ym); } catch { continue; }
+    if (token !== S.token || run !== autoRun) return;
+    if (settings.auto === 'all') queueGames(res.games);
+    updateMonthControls();
+    gamesChanged();
+  }
+  S.allLoaded = true; // opening cards need every game, or recurring positions look rarer than they are
+  gamesChanged();
+}
+
+function filtered() {
+  const f = S.filters;
+  return S.games.filter((g) => (f.result === 'all' || g.result === f.result)
+    && (f.color === 'all' || g.myColor === f.color)
+    && (f.tc === 'all' || g.timeClass === f.tc)
+    && (!f.blunders || review(g)?.stats?.me.blunder > 0));
+}
+
+// ---------- navigation ----------
+function select(g, ply = 0) {
+  if (!g || g.broken) return;
+  stopLine(false);
+  S.cur = g; S.ply = ply; S.flipped = false;
+  analyse(g);
+  if (!ply) setPane('review'); // a fresh game opens on its review; a link to a move goes straight there
+  document.querySelectorAll('#gameList li.sel').forEach((li) => li.classList.remove('sel'));
+  const li = listItem(g);
+  if (li) { li.classList.add('sel'); scrollInList(li); }
+  renderGame();
+  setHash();
+}
+
+// Jumps within the game, leaving any engine line being previewed.
+function go(ply) {
+  const g = S.cur;
+  if (!g) return;
+  stopLine(false);
+  S.ply = Math.max(0, Math.min(g.fens.length - 1, ply));
+  renderPosition();
+}
+
+// ← → step through whatever the board shows: the game, or the line being tried.
+function step(d) {
+  if (!S.line) return go(S.ply + d);
+  S.line.i = Math.max(0, Math.min(S.line.moves.length, S.line.i + d));
+  renderPosition();
+}
+
+// The moves that decided the game: mistakes and blunders by either side that threw away at least
+// MIN_SWING win-chance points (a slip in a position already won or lost doesn't count).
+function keyMoments(g) {
+  return (review(g)?.moves || []).flatMap((j, i) => {
+    if (j?.label !== 'mistake' && j?.label !== 'blunder') return [];
+    const pov = (s) => clamp(g.moves[i].color === 'w' ? s : -s);
+    return winPct(pov(j.before)) - winPct(pov(j.after)) >= MIN_SWING ? [i + 1] : [];
+  });
+}
+
+function jumpMoment(dir) {
+  const plies = keyMoments(S.cur), to = dir > 0 ? plies.find((p) => p > S.ply) : plies.findLast((p) => p < S.ply);
+  if (to != null) go(to);
+}
+
+// "Best move" (instead of the move played) and "Your reply" (to it) put that move on the board as if it
+// had been played, with the rest of the engine's line queued: → or Play steps through it, and any other
+// move branches off into your own line. The engine's line keeps its score, so its positions are
+// scored already and stepping is instant; where it ends, the engine is asked again.
+function tryLine(kind) {
+  const g = S.cur, from = kind === 'better' ? S.ply - 1 : S.ply, [score, pv] = evs(g)[from];
+  const line = playLine(g.fens[from], pv);
+  if (!line.moves.length) return;
+  line.fens.slice(1, -1).forEach((fen, k) => {
+    if (!explored.has(fen)) explored.set(fen, [score, line.moves.slice(k + 1).map((m) => m.lan).join(' ')]);
+  });
+  S.line = { title: `${kind === 'better' ? 'Best move' : 'Best reply'}: ${line.moves[0].san}`, base: from, moves: [...line.moves], fens: [...line.fens], i: 1 };
+  renderPosition();
+}
+
+function stopLine(render = true) {
+  if (!S.line) return;
+  S.line = null;
+  if (render) renderPosition();
+}
+
+// A move made on the review board. The game's own next move (or the line's) just steps forward; any
+// other move starts your own line from the position shown, or cuts the line there and continues it.
+// `base` is the game ply the line starts from.
+function boardMove(from, to, promotion) {
+  const g = S.cur, L = S.line;
+  const c = new Chess(L ? L.fens[L.i] : g.fens[S.ply]);
+  promotion ||= c.get(from)?.type === 'p' && /[18]$/.test(to) ? 'q' : undefined;
+  const mv = c.move({ from, to, promotion });
+  if (!L && g.moves[S.ply]?.uci === mv.lan) return go(S.ply + 1);
+  if (L?.moves[L.i]?.lan === mv.lan) { L.i++; return renderPosition(); }
+  const keep = L ? L.i : 0;
+  S.line = {
+    title: 'Your line', base: L ? L.base : S.ply,
+    moves: [...(L ? L.moves.slice(0, keep) : []), mv], fens: [...(L ? L.fens.slice(0, keep + 1) : [g.fens[S.ply]]), c.fen()], i: keep + 1,
+  };
+  renderPosition();
+}
+
+// ---------- ratings ----------
+// Chess.com's archive gives each rating after the game, so your change in a game is the difference from
+// your previous rated game of the same time control. The opponent's isn't published and is shown as
+// the mirror of yours. Both need every month loaded, since the previous game can be in an older one.
+//
+// "Played like" is an estimate in the spirit of Chess.com's Game Rating: the player's rating before the
+// game, plus K rating points per point of accuracy above what is typical at that rating. Both parts are
+// fitted on your own games, so they follow this engine's accuracy scale: the typical accuracy is a
+// least-squares line, and K is how many rating points one accuracy point is worth when predicting who
+// wins (the ratio of the two coefficients of a logistic regression of the result on the rating gap and
+// the accuracy gap). One game says little; the Summary average is steadier.
+const MIN_FIT_GAMES = 200;
+let ratingModel = null; // built on first use once the account has loaded; gamesChanged drops it
+
+function ratings() {
+  if (ratingModel || !S.allLoaded) return ratingModel;
+  const delta = new Map(), last = {};
+  for (const g of [...allGames.values()].sort((a, b) => a.end - b.end)) {
+    if (!g.rated) continue;
+    if (g.timeClass in last) delta.set(g.url, g.me.rating - last[g.timeClass]);
+    last[g.timeClass] = g.me.rating;
+  }
+  // Ratings before the game: yours minus your change, the opponent's plus it.
+  const pre = (g, color) => g.sides[color].rating + (color === g.myColor ? -1 : 1) * (delta.get(g.url) || 0);
+  const games = [...allGames.values()].filter((g) => delta.has(g.url) && review(g)?.stats);
+  ratingModel = { delta, pre, fit: games.length >= MIN_FIT_GAMES ? fitPlayedLike(games, pre) : null };
+  return ratingModel;
+}
+
+function fitPlayedLike(games, pre) {
+  const side = (g, c) => [pre(g, c), review(g).stats[c].accuracy];
+  const pts = games.flatMap((g) => [side(g, 'w'), side(g, 'b')]);
+  const mr = pts.reduce((t, p) => t + p[0], 0) / pts.length, ma = pts.reduce((t, p) => t + p[1], 0) / pts.length;
+  const beta = pts.reduce((t, p) => t + (p[0] - mr) * (p[1] - ma), 0) / pts.reduce((t, p) => t + (p[0] - mr) ** 2, 0);
+  const alpha = ma - beta * mr, above = ([r, a]) => a - alpha - beta * r;
+  // White's score against [rating gap, accuracy gap], fitted by Newton's method.
+  const X = games.map((g) => { const w = side(g, 'w'), b = side(g, 'b'); return [w[0] - b[0], above(w) - above(b)]; });
+  const Y = games.map((g) => (g.result === 'D' ? 0.5 : (g.result === 'W') === (g.myColor === 'w') ? 1 : 0));
+  let [c0, c1] = [0, 0];
+  for (let it = 0; it < 30; it++) {
+    let g0 = 0, g1 = 0, h00 = 0, h01 = 0, h11 = 0;
+    X.forEach(([x0, x1], i) => {
+      const p = 1 / (1 + Math.exp(-(c0 * x0 + c1 * x1))), w = p * (1 - p), e = Y[i] - p;
+      g0 += e * x0; g1 += e * x1; h00 += w * x0 * x0; h01 += w * x0 * x1; h11 += w * x1 * x1;
+    });
+    const det = h00 * h11 - h01 * h01;
+    c0 += (h11 * g0 - h01 * g1) / det;
+    c1 += (h00 * g1 - h01 * g0) / det;
+  }
+  return c0 > 0 && c1 > 0 ? { alpha, beta, K: c1 / c0 } : null;
+}
+
+// Rating points gained or lost in this game; the opponent's is an estimate.
+function ratingChange(g, color) {
+  const d = ratings()?.delta.get(g.url);
+  return d == null ? null : color === g.myColor ? d : -d;
+}
+
+function playedLike(g, color) {
+  const m = ratings(), st = review(g)?.stats?.[color];
+  if (!m?.fit || !st) return null;
+  const r = m.pre(g, color), { alpha, beta, K } = m.fit;
+  return Math.round((r + K * (st.accuracy - alpha - beta * r)) / 10) * 10;
+}
+
+// ---------- explorer ----------
+// What was played from a position across all your games, split into your moves and your opponents',
+// with your result and the average cost of each move (judged from the saved analyses).
+function explorerStats(fen) {
+  const groups = { me: new Map(), opp: new Map() };
+  for (const { g, ply } of tree.get(posKey(fen)) || []) {
+    const m = g.moves[ply], ev = evs(g), j = ev && judge(g, m, ply, ev[ply], ev[ply + 1]);
+    const group = groups[m.mine ? 'me' : 'opp'];
+    if (!group.has(m.uci)) group.set(m.uci, { uci: m.uci, san: m.san, after: g.fens[ply + 1], n: 0, W: 0, D: 0, L: 0, loss: 0, judged: 0 });
+    const x = group.get(m.uci);
+    x.n++; x[g.result]++;
+    if (j) { x.loss += Math.min(j.loss, CLAMP); x.judged++; }
+  }
+  const sorted = (m) => [...m.values()].sort((a, b) => b.n - a.n);
+  return { me: sorted(groups.me), opp: sorted(groups.opp) };
+}
+
+function renderExplorer() {
+  const el = $('#explorer');
+  if (el.hidden || !S.cur) return;
+  const v = shown(), fen = v.fen, { me, opp } = explorerStats(fen);
+  const eco = ECO?.[posKey(fen)], total = [...me, ...opp].reduce((s, x) => s + x.n, 0);
+  const pct = (x, k) => (100 * x[k]) / x.n;
+  const table = (rows, who) => `<h4>${who}</h4><table><thead><tr><th>Move</th><th class="n">Games</th><th>Your result</th><th class="n">Avg cost</th></tr></thead><tbody>
+    ${rows.map((x) => {
+      const avg = x.judged ? x.loss / x.judged : null, label = avg == null ? null : labelFor(avg, false);
+      const book = ECO?.[posKey(x.after)];
+      return `<tr class="click" data-uci="${x.uci}" title="Won ${x.W}, drew ${x.D}, lost ${x.L}${book ? ` · ${esc(book[1])}` : ''}">
+        <td><b>${x.san}</b>${book ? '<span class="tag">book</span>' : ''}</td><td class="n">${x.n}</td>
+        <td><div class="wdl"><i class="w" style="width:${pct(x, 'W')}%"></i><i class="d" style="width:${pct(x, 'D')}%"></i><i class="l" style="width:${pct(x, 'L')}%"></i></div></td>
+        <td class="n">${avg == null ? '' : `<span class="lbl lbl-${label}">${(avg / 100).toFixed(1)}</span>`}</td></tr>`;
+    }).join('')}</tbody></table>`;
+  const best = v.score?.[1] && playLine(fen, v.score[1]).moves[0];
+  const card = puzzles[cardId(accountUser(), posKey(fen))];
+  el.innerHTML = `
+    <p>${eco ? `<b>${esc(eco[0] + ' ' + eco[1])}</b>. ` : ''}${total ? `Your games reached this position ${total === 1 ? 'once' : `${total} times`}.` : 'None of your games reached this position in their first 20 moves.'}</p>
+    ${card ? `<div class="ex-card"><span>You went wrong here in ${card.slips} of ${card.count} games. It's in your opening drills.</span><button data-ex="drill">Practise it</button></div>` : ''}
+    ${me.length ? table(me, 'Your moves') : ''}
+    ${opp.length ? table(opp, "Your opponents' moves") : ''}
+    ${best ? `<p>Engine: <b>${best.san}</b> (${fmtEval(v.score[0])})${[...me, ...opp].some((x) => x.uci === best.lan) ? '' : ', not played in your games'}. <button data-ex="best">Play ${best.san}</button></p>` : ''}
+    <p class="muted">Click a move to play it on the board.</p>`;
+}
+
+// The right column shows the game's review summary when a game opens, then the moves or the explorer
+// (whichever you used last) once you start.
+function setPane(pane) {
+  if (pane !== 'review') { settings.pane = pane; saveSettings(); }
+  document.querySelectorAll('#paneTabs button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.pane === pane)));
+  for (const p of ['review', 'moves', 'explorer']) $('#' + p).hidden = pane !== p;
+  renderExplorer();
+  renderReview();
+}
+
+// ---------- game review summary ----------
+const REVIEW_ROWS = [['best', 'Best'], ['excellent', 'Excellent'], ['good', 'Good'], ['book', 'Book'], ['inaccuracy', 'Inaccuracy'], ['mistake', 'Mistake'], ['blunder', 'Blunder']];
+const PHASES = [['opening', 'Opening'], ['middlegame', 'Middlegame'], ['endgame', 'Endgame']];
+
+// One sentence on what decided the game: its biggest key moment, who made it and when.
+function verdict(g) {
+  const r = review(g), opp = esc(g.opp.username);
+  const swing = (p) => { const j = r.moves[p - 1], s = (x) => clamp(g.moves[p - 1].color === 'w' ? x : -x); return winPct(s(j.before)) - winPct(s(j.after)); };
+  const top = keyMoments(g).sort((a, b) => swing(b) - swing(a))[0];
+  if (!top) return { W: 'A clean win: no mistake swung the game.', L: `No single mistake decided it: ${opp} outplayed you a little at a time.`, D: 'A balanced game with no mistake that swung it.' }[g.result];
+  const m = g.moves[top - 1], j = r.moves[top - 1], move = `<b>${moveName(m)}${GLYPH[j.label]}</b>`, when = `in the ${phaseOf(g, top - 1)}`;
+  if (g.result === 'D') return `${m.mine ? 'Your' : `${opp}'s`} ${j.label} ${move} ${when} let the game slip to a draw.`;
+  if (m.mine) return g.result === 'L' ? `Your ${j.label} ${move} ${when} was the turning point.` : `You won despite your ${j.label} ${move} ${when}.`;
+  return g.result === 'W' ? `${opp}'s ${j.label} ${move} ${when} handed you the game.` : `${opp} won despite their ${j.label} ${move} ${when}.`;
+}
+
+// How each side played a phase: the label its average move cost would earn.
+function phaseLabel(g, color, phase) {
+  const js = review(g).moves.filter((j, i) => j && g.moves[i].color === color && phaseOf(g, i) === phase);
+  return js.length ? labelFor(js.reduce((t, j) => t + Math.min(j.loss, CLAMP), 0) / js.length, false) : null;
+}
+
+function renderReview() {
+  const el = $('#review'), g = S.cur;
+  if (el.hidden || !g) return;
+  const st = review(g)?.stats;
+  if (!st) {
+    el.innerHTML = `<div class="rv-coach"><span class="rv-avatar">♞</span><p class="rv-bubble">${g.work ? `Analysing the game: ${g.work.done} of ${g.work.ev.length} positions.` : 'Waiting for the engine.'}</p></div>
+      <button class="primary rv-start" data-rv="start">Start review</button>`;
+    return;
+  }
+  const icon = (label) => `<svg viewBox="0 0 100 100" width="22" height="22" aria-hidden="true">${badgeIcon(label)}</svg>`;
+  const row = (name, cells, ico = '') => `<span>${name}</span>${cells[0]}<span class="ico">${ico}</span>${cells[1]}`;
+  const change = (c) => { const d = ratingChange(g, c); return d == null ? '' : `<span class="delta${d > 0 ? ' up' : d < 0 ? ' down' : ''}">${c === g.myColor ? '' : '≈'}${d > 0 ? '+' : ''}${d}</span>`; };
+  const cell = (c, html, cls = '') => `<span class="v ${cls}">${html}</span>`;
+  const phase = (c, p) => { const l = phaseLabel(g, c, p); return `<span class="ico" title="${l ? LABEL[l] : ''}">${l ? icon(l) : '–'}</span>`; };
+  const liked = ['w', 'b'].map((c) => playedLike(g, c));
+  el.innerHTML = `
+    <div class="rv-coach"><span class="rv-avatar">♞</span><p class="rv-bubble">${verdict(g)}</p></div>
+    <svg class="evgraph rv-graph" viewBox="0 0 300 64" preserveAspectRatio="none">${graphSvg(g, 300, 64)}</svg>
+    <div class="rv-grid">
+      ${row('', ['w', 'b'].map((c) => `<span class="who"><span class="pc pc-${c}"></span>${esc(g.sides[c].username)}</span>`))}
+      ${row('Rating', ['w', 'b'].map((c) => cell(c, `${g.sides[c].rating}${change(c)}`)))}
+      ${row('Accuracy', ['w', 'b'].map((c) => cell(c, `<span class="rv-box ${c}">${st[c].accuracy.toFixed(1)}</span>`)))}
+      <span class="hr"></span>
+      ${REVIEW_ROWS.map(([k, name]) => row(name, ['w', 'b'].map((c) => cell(c, st[c][k], `v-${k}`)), icon(k))).join('')}
+      <span class="hr"></span>
+      ${liked.some((x) => x != null) ? row('Played like', liked.map((x, i) => cell('wb'[i], `<span class="rv-box ${'wb'[i]}">${x ?? '–'}</span>`))) : ''}
+      ${PHASES.map(([p, name]) => `<span>${name}</span>${phase('w', p)}<span></span>${phase('b', p)}`).join('')}
+    </div>
+    <button class="primary rv-start" data-rv="start">Start review</button>`;
+}
+
+// Starts at the first move that decided the game, or at the first move if none did.
+function startReview() {
+  setPane(settings.pane === 'explorer' ? 'explorer' : 'moves');
+  const first = keyMoments(S.cur)[0];
+  go(first ?? 1);
+}
+
+// Engine scores ([score, pv]) of positions off the game, found as your own lines reach them; null while
+// the engine works. Ended positions are scored on the spot. Probes go ahead of the background analysis.
+const explored = new Map();
+function explore(fen) {
+  if (explored.has(fen)) return explored.get(fen);
+  const end = terminalScore(new Chess(fen));
+  explored.set(fen, end == null ? null : [end, '']);
+  if (end == null) {
+    probe(fen, settings.depth, 10).then(
+      (r) => { explored.set(fen, r); if (S.line) renderPosition(); },
+      () => explored.delete(fen),
+    );
+  }
+  return explored.get(fen);
+}
+
+// Your own line as the engine sees it: the score of the position shown, and the label of the move
+// that led there once both of its positions are scored.
+function lineView(L) {
+  const at = (k) => (k === 0 && evs(S.cur)?.[L.base]) || explore(L.fens[k]);
+  const here = at(L.i), mv = L.moves[L.i - 1], before = mv && at(L.i - 1);
+  if (!mv || !here || !before) return { here, label: null };
+  const sign = mv.color === 'w' ? 1 : -1;
+  return { here, label: labelFor(Math.max(0, sign * clamp(before[0]) - sign * clamp(here[0])), before[1].split(' ')[0] === mv.lan) };
+}
+
+// Plays the engine's move in the position shown, so you can click through how a game would have gone.
+function playBest() {
+  const u = shown().score?.[1].split(' ')[0];
+  if (u) boardMove(u.slice(0, 2), u.slice(2, 4), u[4]);
+}
+
+// What the board shows: the game at S.ply, an engine line being previewed, or your own line. Each gives
+// the position, the move that led there and its label, the engine's [score, pv] for the position (null
+// while unknown) and the shapes to draw.
+function shown() {
+  const g = S.cur, L = S.line;
+  if (!L) return { fen: g.fens[S.ply], last: g.moves[S.ply - 1], label: review(g)?.moves[S.ply - 1]?.label, score: evs(g)?.[S.ply] || null, shapes: gameShapes(g) };
+  const last = L.moves[L.i - 1], { here, label } = lineView(L), best = here?.[1].split(' ')[0];
+  return { fen: L.fens[L.i], last, label, score: here, shapes: [...(label ? [badge(last.to, label)] : []), ...(best ? [arrowTo(best, 'paleBlue')] : [])] };
+}
+
+// ---------- rendering ----------
+const cg = Chessground($('#board'), {
+  coordinates: true, animation: { enabled: true, duration: 120 },
+  highlight: { lastMove: true, check: true }, drawable: { enabled: false, visible: true },
+  // Picking up a piece of the side to move shows where it can go; moving it plays on (see boardMove).
+  movable: { free: false, color: undefined, showDests: true, events: { after: (from, to) => boardMove(from, to) } },
+  premovable: { enabled: false },
+});
+
+const monthLabel = (ym) => new Date(ym + '-01T12:00:00').toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+const fmtDate = (t) => new Date(t).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+const fmtDay = (t) => new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+const fmtAcc = (a) => (a == null ? '–' : a.toFixed(1) + '%');
+function fmtTc(tc) {
+  if (!tc) return '';
+  if (tc.includes('/')) return +(tc.split('/')[1] / 86400).toFixed(1) + 'd';
+  const [base, inc = '0'] = tc.split('+');
+  return `${+(base / 60).toFixed(2)}+${inc}`;
+}
+const errBadges = (m) => [
+  m.blunder && `<span class="lbl-blunder">${m.blunder}??</span>`,
+  m.mistake && `<span class="lbl-mistake">${m.mistake}?</span>`,
+  m.inaccuracy && `<span class="lbl-inaccuracy">${m.inaccuracy}?!</span>`,
+].filter(Boolean).join(' ');
+
+function setStatus(t) { $('#status').textContent = t; }
+let toastTimer;
+function toast(t) {
+  const el = $('#toast');
+  el.textContent = t; el.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => (el.hidden = true), 5000);
+}
+
+function fillMonths() {
+  const sel = $('#month');
+  sel.innerHTML = S.archives.map((ym) => `<option value="${ym}">${monthLabel(ym)}</option>`).join('');
+  sel.disabled = !S.archives.length;
+}
+
+function fillTimeClasses() {
+  const tcs = [...new Set(S.games.map((g) => g.timeClass))].sort();
+  const sel = $('#fTc');
+  if (!tcs.includes(S.filters.tc)) S.filters.tc = 'all';
+  sel.innerHTML = '<option value="all">All time controls</option>' + tcs.map((t) => `<option value="${t}">${cap(t)}</option>`).join('');
+  sel.value = S.filters.tc;
+}
+
+// Scrolls only the list, never the page, so stepping through moves on a phone keeps the board in view.
+function scrollInList(li) {
+  const p = li.parentElement;
+  if (li.offsetTop < p.scrollTop) p.scrollTop = li.offsetTop;
+  else if (li.offsetTop + li.offsetHeight > p.scrollTop + p.clientHeight) p.scrollTop = li.offsetTop + li.offsetHeight - p.clientHeight;
+}
+
+const listItem = (g) => document.querySelector(`#gameList li[data-url="${CSS.escape(g.url)}"]`);
+
+function gameStatus(g) {
+  if (g.broken) return '<span class="muted">PGN error</span>';
+  const st = review(g)?.stats;
+  if (st) return `<b>${fmtAcc(st.me.accuracy)}</b><span class="errs">${errBadges(st.me)}</span>`;
+  const w = g.work;
+  if (w) {
+    const started = sched.focus === g || w.done > (g.terminal != null ? 1 : 0);
+    return started ? `<span class="muted">${Math.round((w.done / w.ev.length) * 100)}%</span>` : '<span class="muted">queued</span>';
+  }
+  return '';
+}
+
+function gameItem(g) {
+  return `<li class="game${g === S.cur ? ' sel' : ''}${g.broken ? ' broken' : ''}" data-url="${esc(g.url)}">
+    <span class="res res-${g.result}">${g.result}</span>
+    <div class="gmain">
+      <div class="gopp"><span class="pc pc-${g.myColor}" title="You played ${g.myColor === 'w' ? 'white' : 'black'}"></span>${esc(g.opp.username)} <small>${g.opp.rating}</small></div>
+      <div class="gmeta">${fmtDate(g.end)} · ${fmtTc(g.timeControl)} ${g.timeClass}${g.opening ? ' · ' + esc(shortOpening(g.opening.name)) : ''}</div>
+    </div>
+    <div class="gstat">${gameStatus(g)}</div>
+  </li>`;
+}
+
+function renderList() {
+  const el = $('#gameList');
+  const list = filtered();
+  $('#listCount').textContent = S.games.length ? `${list.length} of ${S.games.length} games · ${S.ym ? monthLabel(S.ym) : ''}` : 'No games loaded';
+  if (!S.games.length) {
+    el.innerHTML = `<li class="empty">${S.user ? 'No games loaded.' : 'Enter a Chess.com username to load games.'}</li>`;
+    return;
+  }
+  el.innerHTML = list.length ? list.map(gameItem).join('') : '<li class="empty">No games match the filters.</li>';
+}
+
+// Two render levels: renderGame for anything that depends on the game or its analysis,
+// renderPosition for anything that depends only on the move being shown.
+function renderGame() {
+  const g = S.cur;
+  $('#gameTools').hidden = $('#paneTabs').hidden = !g;
+  if (!g) {
+    $('#openingName').textContent = S.games.length ? 'No game selected' : 'Chess analyser';
+    $('#gameSub').textContent = S.games.length ? 'Pick a game from the list.' : 'Load a month of Chess.com games to start.';
+  } else {
+    $('#openingName').textContent = g.opening ? `${g.opening.eco} ${g.opening.name}` : 'Unknown opening';
+    $('#ccLink').href = g.url;
+    $('#onlyErrors').checked = S.onlyErrors;
+    const res = { W: 'You won', L: 'You lost', D: 'Draw' }[g.result];
+    const tail = g.analysis ? `${g.analysis.e}, depth ${g.analysis.d}`
+      : g.work ? `Analysing ${g.work.done}/${g.work.ev.length} positions, depth ${g.work.depth}` : '';
+    $('#gameSub').textContent = [`${res} (${g.resultTag})`, g.termination, `${fmtTc(g.timeControl)} ${g.timeClass}`, tail].filter(Boolean).join(' · ');
+  }
+  renderPlayers(); renderMoves(); renderGraph(); renderPosition(); renderReview();
+}
+
+function clockAt(g, color) {
+  for (let i = S.ply - 1; i >= 0; i--) if (g.moves[i].color === color && g.moves[i].clk) return g.moves[i].clk.replace(/^0:/, '').replace(/\.\d+$/, '');
+  return '';
+}
+
+function renderPlayers() {
+  const g = S.cur;
+  const bottom = !g ? 'w' : (g.myColor === 'w') !== S.flipped ? 'w' : 'b';
+  for (const [el, color] of [[$('#playerBottom'), bottom], [$('#playerTop'), bottom === 'w' ? 'b' : 'w']]) {
+    if (!g) { el.innerHTML = `<span class="pc pc-${color}"></span><span class="muted">${color === 'w' ? 'White' : 'Black'}</span>`; continue; }
+    const p = g.sides[color], mine = color === g.myColor;
+    const st = review(g)?.stats?.[color], d = ratingChange(g, color), like = playedLike(g, color);
+    const change = d == null ? '' : `<span class="delta${d > 0 ? ' up' : d < 0 ? ' down' : ''}" title="${mine ? 'Your rating change in this game' : "About the mirror of yours: Chess.com doesn't publish the opponent's change"}">${mine ? '' : '≈'}${d > 0 ? '+' : ''}${d}</span>`;
+    el.innerHTML = `<span class="pc pc-${color}"></span><span class="pname">${esc(p.username)}</span><small>${p.rating}</small>${change}
+      ${like ? `<span class="perf" title="A rough estimate from this game's accuracy against what's typical at ${esc(p.username)}'s rating, fitted on your games">played like ~${like}</span>` : ''}
+      ${st ? `<span class="pacc">${fmtAcc(st.accuracy)} · ACPL ${Math.round(st.acpl)} ${errBadges(st)}</span>` : ''}
+      <span class="clock" data-color="${color}">${clockAt(g, color)}</span>`;
+  }
+}
+
+function renderMoves() {
+  const g = S.cur, el = $('#moves');
+  if (!g) { el.innerHTML = ''; return; }
+  const ev = evs(g), r = review(g);
+  let html = `<li data-ply="0" class="start${S.ply === 0 ? ' cur' : ''}${S.onlyErrors ? ' hide' : ''}"><span class="no"></span><span class="san">Start</span><span class="ev">${ev?.[0] ? fmtEval(ev[0][0]) : ''}</span></li>`;
+  g.moves.forEach((m, i) => {
+    const ply = i + 1, j = r?.moves[i];
+    let alt = '';
+    if (j && j.label !== 'best' && j.label !== 'book' && j.line) {
+      const san = playLine(g.fens[i], j.line).moves.map((x) => x.san);
+      if (san.length) alt = j.err ? `Best was <b>${san[0]}</b> <span class="pv">${san.slice(1).join(' ')}</span>` : `Best was ${san[0]}`;
+    }
+    const title = j ? `${j.label} · lost ${(j.loss / 100).toFixed(2)} · accuracy ${j.acc.toFixed(0)}%` : '';
+    html += `<li data-ply="${ply}" title="${title}" class="${m.color} ${m.mine ? 'me' : 'them'}${ply === S.ply ? ' cur' : ''}${S.onlyErrors && !(m.mine && j?.err) ? ' hide' : ''}">
+      <span class="no">${moveNo(m)}</span>
+      <span class="san">${m.san}${j ? `<span class="lbl lbl-${j.label}">${GLYPH[j.label]}</span>` : ''}</span>
+      <span class="ev">${ev?.[ply] ? fmtEval(ev[ply][0]) : g.work ? '…' : ''}</span>
+      ${alt ? `<span class="alt">${alt}</span>` : ''}</li>`;
+  });
+  if (S.onlyErrors && !r?.moves.some((j, i) => j?.err && g.moves[i].mine)) {
+    html += `<li class="empty-note">${r ? 'No errors of yours so far.' : 'Waiting for analysis.'}</li>`;
+  }
+  el.innerHTML = html;
+}
+
+function renderGraph() {
+  const g = S.cur, svg = $('#graph');
+  const W = svg.clientWidth || 560, H = 120;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  if (!g) { svg.innerHTML = `<rect width="${W}" height="${H}" class="g-bg"/><rect width="${W}" height="${H / 2}" y="${H / 2}" class="g-area"/>`; return; }
+  svg.innerHTML = `${graphSvg(g, W, H)}<line id="gCur" y1="0" y2="${H}" class="g-cur"/>`;
+  moveCursor();
+}
+
+// White's winning chances over the game, with a dot on every error (smaller for the opponent's).
+function graphSvg(g, W, H) {
+  const n = Math.max(1, g.fens.length - 1);
+  const X = (i) => (i / n) * W;
+  const Y = (s) => H - (winPct(clamp(s)) / 100) * H;
+  const pts = [];
+  (evs(g) || []).forEach((e, i) => { if (e) pts.push(`${X(i).toFixed(1)},${Y(e[0]).toFixed(1)}`); });
+  const area = pts.length ? `M${pts[0].split(',')[0]},${H} L${pts.join(' L')} L${pts.at(-1).split(',')[0]},${H} Z` : '';
+  let dots = '';
+  review(g)?.moves.forEach((j, i) => {
+    if (!j?.err) return;
+    const mine = g.moves[i].mine;
+    dots += `<circle class="dot ${j.label} ${mine ? 'mine' : 'theirs'}" cx="${X(i + 1).toFixed(1)}" cy="${Y(j.after).toFixed(1)}" r="${mine ? 4.5 : 3}"/>`;
+  });
+  return `<rect width="${W}" height="${H}" class="g-bg"/><path d="${area}" class="g-area"/>
+    <line x1="0" x2="${W}" y1="${H / 2}" y2="${H / 2}" class="g-mid"/>${dots}`;
+}
+
+function moveCursor() {
+  const g = S.cur, line = $('#gCur');
+  if (!g || !line) return;
+  const W = $('#graph').clientWidth || 560;
+  const x = (S.ply / Math.max(1, g.fens.length - 1)) * W;
+  line.setAttribute('x1', x); line.setAttribute('x2', x);
+}
+
+// Hover draws the move's arrow; a click puts the move on the board (see tryLine).
+const moveBtn = (kind, label, f, note) => `<button class="mvbtn mv-${kind}" data-line="${kind}" title="Show it on the board, then step through: ${esc(f.san.join(' '))}">
+  <span class="k">${label}</span><b>${f.san[0]}</b>${note ? `<small>${note}</small>` : ''}</button>`;
+
+function coachHtml(g) {
+  const r = review(g), ply = S.ply;
+  if (ply === 0) {
+    const ev0 = evs(g)?.[0];
+    return `<div class="coach-head"><b>Start position</b><span class="cev">${ev0 ? fmtEval(ev0[0]) : ''}</span></div>
+      <p class="muted">Step with ← →, or press Next key moment (↓) for the moves that decided the game. h shows the engine's move, f flips the board.</p>`;
+  }
+  const i = ply - 1, m = g.moves[i], j = r?.moves[i];
+  if (!j) return `<div class="coach-head"><b>${moveName(m)}</b></div><p class="muted">Analysing…</p>`;
+
+  const oppName = esc(g.opp.username);
+  const pov = (s) => (m.color === 'w' ? s : -s);
+  const bm = pov(j.before), am = pov(j.after);
+  const prev = r.moves[i - 1];
+  const prevErr = prev?.label === 'mistake' || prev?.label === 'blunder';
+  const out = [], btns = [];
+
+  if (j.label === 'book') {
+    const e = ECO?.[posKey(g.fens[ply])];
+    out.push(e ? `Opening theory: ${esc(e[0] + ' ' + e[1])}.` : 'Still opening theory.');
+  } else if (j.label === 'best') {
+    out.push(`The engine's top choice. The position is ${standing(j.after)} (${fmtEval(j.after)}).`);
+    if (prevErr) out.push(`It punishes ${m.mine ? `${oppName}'s` : 'your'} ${prev.label} on the move before.`);
+  } else {
+    if (!j.err) out.push(`Close to the best move. The position is ${standing(j.after)} (${fmtEval(j.after)}).`);
+    else if (isMate(j.after) && am < 0) out.push(`This allows mate in ${MATE - Math.abs(j.after)}.`);
+    else if (isMate(j.before) && bm > 0 && !(isMate(j.after) && am > 0)) out.push(`This misses mate in ${MATE - Math.abs(j.before)}.`);
+    else if (bm >= 300 && am < 150) out.push(`${m.mine ? 'You were' : `${oppName} was`} winning (${fmtEval(j.before)}). Now it's ${standing(j.after)} (${fmtEval(j.after)}).`);
+    else out.push(`It costs about ${(Math.min(j.loss, CLAMP) / 100).toFixed(1)} pawns: ${fmtEval(j.before)} before, ${fmtEval(j.after)} after.`);
+    if (j.err && prevErr) out.push(`${m.mine ? oppName : 'You'} had just played ${LABEL[prev.label]}, and this move lets it go.`);
+    const better = lineFacts(g.fens[i], j.line);
+    if (better.san.length) btns.push(moveBtn('better', 'Best move', better, [fmtEval(j.before), materialPhrase(better)].filter(Boolean).join(' · ')));
+    const reply = j.err ? lineFacts(g.fens[ply], j.reply) : null;
+    if (reply?.san.length) btns.push(moveBtn('reply', m.mine ? `${oppName}'s reply` : 'Your reply', reply, materialPhrase(reply)));
+    // Explain shows the position you should have reached: after the better move when the error was
+    // yours, after the reply that punishes it when it was your opponent's.
+    const explain = m.mine ? better : reply;
+    if (j.err && explain?.san.length) btns.unshift(`<button class="primary" data-line="${m.mine ? 'better' : 'reply'}" title="${m.mine ? `Show the position after ${explain.san[0]}, the move to play instead` : `Show how to punish it: the position after ${explain.san[0]}`}">Explain</button>`);
+  }
+
+  const finish = ply === g.moves.length && g.terminal == null && playLine(g.fens[ply], evs(g)?.[ply]?.[1]).moves[0];
+  if (finish) {
+    out.push(`The game ended here${g.termination ? ` (${esc(g.termination)})` : ''}. Move a piece to play on, or follow the engine to see the finish.`);
+    btns.push(`<button class="mvbtn mv-better" data-act="best">Play ${finish.san}</button>`);
+  }
+
+  const moments = keyMoments(g), k = moments.indexOf(ply);
+  return `${k >= 0 ? `<p class="moment">Key moment ${k + 1} of ${moments.length}: here's what needed your attention.</p>` : ''}
+    <div class="coach-head"><span class="chip chip-${j.label}">${GLYPH[j.label]}</span>
+      <b>${moveName(m)} is ${LABEL[j.label]}</b><span class="cev">${fmtEval(j.after)}</span></div>
+    ${out.map((p) => `<p>${p}</p>`).join('')}
+    ${btns.length ? `<div class="mv-btns">${btns.join('')}</div>` : ''}`;
+}
+
+function lineCoachHtml(v) {
+  const L = S.line;
+  const toks = numberedSan(L, '…').map((t, k) => `<span class="lm${k === L.i - 1 ? ' cur' : ''}">${t}</span>`).join(' ');
+  const head = v.score ? fmtEval(v.score[0]) : 'thinking…';
+  return `<div class="coach-head"><span class="chip chip-line">▶</span><b>${esc(L.title)}</b><span class="cev">${head}</span></div>
+    <p>${toks}</p>
+    ${ownLineHtml(L, v)}
+    <p><button data-act="prev">◀</button> <button data-act="next">▶</button> <button data-act="exit">Back to game (Esc)</button></p>`;
+}
+
+// Your own line: how the last move rates, and the engine's move from here with a button to play it.
+function ownLineHtml(L, { score: here, label }) {
+  const out = [], mv = L.moves[L.i - 1], fen = L.fens[L.i];
+  if (mv && label) {
+    const [, side, , , , no] = L.fens[L.i - 1].split(' ');
+    out.push(`<p><span class="chip chip-${label}">${GLYPH[label]}</span> <b>${no}${side === 'w' ? '.' : '…'} ${mv.san}</b> is ${LABEL[label]}.</p>`);
+  }
+  const c = new Chess(fen);
+  if (c.isCheckmate()) out.push('<p>Checkmate.</p>');
+  else if (c.isGameOver()) out.push('<p>Draw.</p>');
+  else if (!here) out.push('<p class="muted">The engine is thinking…</p>');
+  else {
+    const best = playLine(fen, here[1]), first = best.moves[0];
+    const mate = isMate(here[0]) ? ` (mate in ${MATE - Math.abs(here[0])})` : '';
+    if (first) {
+      out.push(`<p>Best here: <b>${first.san}</b>${mate}. <span class="muted">${numberedSan(best, '…').join(' ')}</span></p>
+        <div class="mv-btns"><button class="mvbtn mv-better" data-act="best">Play ${first.san}</button></div>`);
+    }
+  }
+  return out.join('');
+}
+
+// A Chess.com-style badge on the square a move landed on: a disc in the label's colour with its glyph,
+// over the square's top-right corner. Chessground draws custom SVG in a 100×100 box over the square.
+const BOOK_ICON = '<path d="M20 30q15-7 28 2v40q-13-8-28-2zM80 30q-15-7-28 2v40q13-8 28-2z" fill="#fff"/>';
+// The disc itself, in a 100×100 box.
+function badgeIcon(label, glyph = GLYPH[label]) {
+  const icon = label === 'book' ? BOOK_ICON
+    : `<text x="50" y="50" dy=".35em" text-anchor="middle" fill="#fff" font-family="system-ui, sans-serif" font-weight="800" font-size="${glyph.length > 1 ? 48 : 60}">${glyph}</text>`;
+  return `<circle cx="50" cy="50" r="50" style="fill: var(--${label})"/>${icon}`;
+}
+function badge(key, label, glyph) {
+  return { orig: key, customSvg: { html: `<g transform="translate(70 -14) scale(.42)" style="filter: drop-shadow(0 3px 3px rgb(0 0 0 / .35))">${badgeIcon(label, glyph)}</g>` } };
+}
+
+// Arrows describe the move just played: green is what should have been played instead,
+// red is the reply that punishes an error. The hint shows the engine's move from here.
+const arrowTo = (u, brush) => ({ orig: u.slice(0, 2), dest: u.slice(2, 4), brush });
+function gameShapes(g) {
+  const j = review(g)?.moves[S.ply - 1];
+  const next = evs(g)?.[S.ply]?.[1]?.split(' ')[0];
+  const shapes = j ? [badge(g.moves[S.ply - 1].to, j.label)] : [];
+  if (settings.arrows && j) {
+    if (j.best && j.label !== 'best' && j.label !== 'book') shapes.push(arrowTo(j.best, 'green'));
+    if (next && j.err) shapes.push(arrowTo(next, 'red'));
+  }
+  if (next && S.hint && !(settings.arrows && j?.err)) shapes.push(arrowTo(next, 'paleBlue'));
+  return shapes;
+}
+
+function renderPosition() {
+  const g = S.cur;
+  const bar = $('#evalBar');
+  if (!g) {
+    cg.set({ fen: 'start', orientation: 'white', lastMove: undefined, check: false, movable: { color: undefined, dests: new Map() } });
+    cg.setAutoShapes([]);
+    $('#board').style.removeProperty('--mv');
+    bar.firstElementChild.style.height = '50%';
+    $('#coach').innerHTML = '<p class="muted">Pick a game to see each move explained.</p>';
+    return;
+  }
+  const v = shown(), c = new Chess(v.fen), turn = c.turn() === 'w' ? 'white' : 'black';
+  const orientation = (g.myColor === 'w') !== S.flipped ? 'white' : 'black';
+  cg.set({ fen: v.fen, orientation, turnColor: turn, lastMove: v.last ? [v.last.from, v.last.to] : undefined, check: c.inCheck(), movable: { color: turn, dests: legalDests(c) } });
+  cg.setAutoShapes(v.shapes);
+  $('#board').style.setProperty('--mv', v.label ? `var(--${v.label})` : '');
+
+  // A line keeps the bar where it was until its position is scored.
+  if (v.score || !S.line) {
+    bar.firstElementChild.style.height = (v.score ? winPct(clamp(v.score[0])) : 50) + '%';
+    bar.title = v.score ? fmtEval(v.score[0]) : '';
+  }
+  bar.classList.toggle('flipped', orientation === 'black');
+
+  $('#coach').innerHTML = S.line ? lineCoachHtml(v) : coachHtml(g);
+  const ahead = keyMoments(g).filter((p) => p > S.ply).length, next = $('#bMoment');
+  next.disabled = !ahead;
+  next.textContent = ahead ? `Next key moment (${ahead})` : g.work ? 'Analysing…' : 'No more key moments';
+
+  document.querySelectorAll('#moves li.cur').forEach((li) => li.classList.remove('cur'));
+  const li = document.querySelector(`#moves li[data-ply="${S.ply}"]`);
+  if (li) { li.classList.add('cur'); scrollInList(li); }
+  document.querySelectorAll('.player .clock').forEach((el) => (el.textContent = clockAt(g, el.dataset.color)));
+  moveCursor();
+  renderExplorer();
+}
+
+// Batches UI updates from engine results into one frame.
+const dirtySet = new Set();
+let dirtyDone = false, raf = 0;
+function dirty(g, done = false) {
+  dirtySet.add(g); dirtyDone ||= done;
+  if (!raf) raf = requestAnimationFrame(flush);
+}
+function flush() {
+  raf = 0;
+  for (const g of dirtySet) {
+    const li = listItem(g);
+    if (li) li.querySelector('.gstat').innerHTML = gameStatus(g);
+    if (g === S.cur) renderGame();
+  }
+  dirtySet.clear();
+  if (dirtyDone) {
+    dirtyDone = false;
+    if (S.filters.blunders) renderList();
+    if (S.view === 'summary') renderSummary();
+  }
+  updateMonthControls();
+  updateStatus();
+}
+
+function updateStatus() {
+  const el = $('#engineStatus');
+  if (sched.error) { el.textContent = 'Engine error'; return; }
+  const busy = sched.pool.filter((e) => e.running).length;
+  if (!busy) { el.textContent = sched.pool.length ? 'Engine idle' : ''; return; }
+  const loading = sched.pool.some((e) => e.running && !e.isReady);
+  const queued = queueRunning() ? ` · ${sched.queue.length} game${sched.queue.length === 1 ? '' : 's'} queued` : '';
+  el.textContent = loading ? 'Loading engine…' : `${busy} engine${busy > 1 ? 's' : ''} · ${rate().toFixed(1)} pos/s${queued}`;
+}
+
+function updateMonthControls() {
+  const list = filtered().filter((g) => !g.broken);
+  const done = list.filter((g) => g.analysis).length;
+  const todo = list.length - done;
+  const running = queueRunning();
+  const btn = $('#analyseMonth');
+  btn.disabled = !sched.leader || (!running && !todo);
+  btn.textContent = !sched.leader ? 'Analysing in another tab' : running ? 'Pause' : todo ? `Analyse ${todo} game${todo > 1 ? 's' : ''}` : 'All analysed';
+  btn.classList.toggle('primary', !running && todo > 0);
+  $('#monthBar').style.width = list.length ? (done / list.length) * 100 + '%' : '0';
+  let txt = list.length ? `${done}/${list.length} analysed` : '';
+  if (running) {
+    const left = sched.queue.reduce((s, g) => s + (g.work ? g.work.ev.length - g.work.done : 0), 0);
+    const r = rate();
+    const all = sched.queue.some((g) => g.ym !== S.ym) ? ' for all months' : '';
+    if (r > 0) txt += ` · ~${Math.max(1, Math.round(left / r / 60))} min left${all}`;
+  }
+  $('#monthProgress').textContent = txt;
+}
+
+// ---------- summary ----------
+function agg(label) { return { label, n: 0, W: 0, D: 0, L: 0, a: 0, acc: 0, acpl: 0, blunder: 0, mistake: 0, inaccuracy: 0 }; }
+function addAgg(r, g) {
+  r.n++; r[g.result]++;
+  const me = review(g)?.stats?.me;
+  if (!me) return;
+  r.a++; r.acc += me.accuracy ?? 0; r.acpl += me.acpl;
+  for (const k of ERRORS) r[k] += me[k];
+}
+function aggRow(r) {
+  const per = (k) => (r.a ? (r[k] / r.a).toFixed(2) : '–');
+  const score = r.n ? Math.round(((r.W + r.D / 2) / r.n) * 100) + '%' : '–';
+  return `<tr><td>${esc(r.label)}</td><td class="n">${r.n}</td><td class="n">${r.W}/${r.D}/${r.L}</td><td class="n">${score}</td>
+    <td class="n">${r.a}</td><td class="n">${r.a ? fmtAcc(r.acc / r.a) : '–'}</td><td class="n">${r.a ? Math.round(r.acpl / r.a) : '–'}</td>
+    <td class="n">${per('blunder')}</td><td class="n">${per('mistake')}</td><td class="n">${per('inaccuracy')}</td></tr>`;
+}
+const aggHead = '<thead><tr><th></th><th class="n">Games</th><th class="n">W/D/L</th><th class="n">Score</th><th class="n">Analysed</th><th class="n">Accuracy</th><th class="n">ACPL</th><th class="n">?? / game</th><th class="n">? / game</th><th class="n">?! / game</th></tr></thead>';
+
+function renderSummary() {
+  const el = $('#summaryView');
+  if (!S.games.length) { el.innerHTML = '<div class="panel empty-note">Load a month to see a summary.</div>'; return; }
+  const games = filtered();
+  const all = agg('All games');
+  const groups = new Map([['w', agg('As white')], ['b', agg('As black')]]);
+  const tcs = new Map(), openings = new Map();
+  for (const g of games) {
+    addAgg(all, g);
+    addAgg(groups.get(g.myColor), g);
+    const tc = g.timeClass;
+    if (!tcs.has(tc)) tcs.set(tc, agg(cap(tc)));
+    addAgg(tcs.get(tc), g);
+    const op = g.opening ? shortOpening(g.opening.name) : 'Unknown';
+    const ok = `${g.myColor}|${op}`;
+    if (!openings.has(ok)) openings.set(ok, agg(`${g.myColor === 'w' ? '♔' : '♚'} ${op}`));
+    addAgg(openings.get(ok), g);
+  }
+  const topOpenings = [...openings.values()].sort((a, b) => b.n - a.n).slice(0, 12);
+  const tile = (k, v, s = '') => `<div class="panel tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
+  const per = (k) => (all.a ? (all[k] / all.a).toFixed(2) : '–');
+  const liked = games.map((g) => [playedLike(g, g.myColor), ratings()?.pre(g, g.myColor)]).filter(([x]) => x != null);
+  const avg = (k) => Math.round(liked.reduce((t, x) => t + x[k], 0) / liked.length);
+
+  const rows = games.map((g) => {
+    const st = review(g)?.stats?.me;
+    return `<tr class="click" data-url="${esc(g.url)}"><td>${fmtDay(g.end)}</td><td><span class="pc pc-${g.myColor}"></span>${esc(g.opp.username)} <small>${g.opp.rating}</small></td>
+      <td><span class="res res-${g.result}" style="display:inline-grid">${g.result}</span></td><td>${fmtTc(g.timeControl)} ${g.timeClass}</td>
+      <td>${g.opening ? esc(g.opening.eco + ' ' + shortOpening(g.opening.name)) : ''}</td>
+      <td class="n">${playedLike(g, g.myColor) ?? ''}</td>
+      <td class="n">${st ? fmtAcc(st.accuracy) : g.work ? '…' : ''}</td><td class="n">${st ? Math.round(st.acpl) : ''}</td>
+      <td class="n lbl-blunder">${st?.blunder || ''}</td><td class="n lbl-mistake">${st?.mistake || ''}</td><td class="n lbl-inaccuracy">${st?.inaccuracy || ''}</td></tr>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="tiles">
+      ${tile('Games', all.n, `${all.a} analysed`)}
+      ${tile('Score', all.n ? Math.round(((all.W + all.D / 2) / all.n) * 100) + '%' : '–', `${all.W}W ${all.D}D ${all.L}L`)}
+      ${tile('Accuracy', all.a ? fmtAcc(all.acc / all.a) : '–', 'Lichess-style estimate')}
+      ${liked.length ? tile('Played like', `~${avg(0)}`, `Rated ${avg(1)} on average, over ${liked.length} games`) : ''}
+      ${tile('Blunders / game', per('blunder'), `${per('mistake')} mistakes, ${per('inaccuracy')} inaccuracies`)}
+      ${tile('Avg centipawn loss', all.a ? Math.round(all.acpl / all.a) : '–', 'Per move, capped at 10 pawns')}
+    </div>
+    <div class="panel"><h2>By colour and time control</h2><div class="table-wrap"><table>${aggHead}<tbody>
+      ${aggRow(all)}${[...groups.values()].map(aggRow).join('')}${[...tcs.values()].map(aggRow).join('')}
+    </tbody></table></div></div>
+    <div class="panel"><h2>By opening</h2><div class="table-wrap"><table>${aggHead}<tbody>${topOpenings.map(aggRow).join('')}</tbody></table></div></div>
+    <div class="panel"><h2><span>Games</span><span class="exports">
+        <button data-export="csv">Summary CSV</button><button data-export="pgn">Annotated PGN</button><button data-export="json">Analysis JSON</button>
+      </span></h2>
+      <div class="table-wrap"><table><thead><tr><th>Date</th><th>Opponent</th><th>Result</th><th>Time</th><th>Opening</th><th class="n">Played like</th><th class="n">Accuracy</th><th class="n">ACPL</th><th class="n">??</th><th class="n">?</th><th class="n">?!</th></tr></thead>
+      <tbody>${rows}</tbody></table></div></div>`;
+}
+
+// ---------- export ----------
+function download(name, text, type = 'text/plain') {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+function wrap(text, width = 79) {
+  const out = [];
+  let line = '';
+  for (const w of text.split(' ')) {
+    if (line && line.length + 1 + w.length > width) { out.push(line); line = w; } else line = line ? line + ' ' + w : w;
+  }
+  if (line) out.push(line);
+  return out.join('\n').replaceAll(NB, ' ');
+}
+
+function annotatedPgn(g) {
+  const ev = evs(g), r = review(g);
+  const headers = g.pgn.split('\n').filter((l) => l.startsWith('['));
+  if (g.opening && !headers.some((h) => h.startsWith('[Opening '))) headers.push(`[Opening "${g.opening.name.replace(/"/g, "'")}"]`);
+  if (g.analysis) headers.push(`[Annotator "${g.analysis.e}, depth ${g.analysis.d}"]`);
+  const toks = [];
+  let needNum = true;
+  g.moves.forEach((m, i) => {
+    let t = m.color === 'w' ? `${m.no}.${NB}${m.san}` : needNum ? `${m.no}...${NB}${m.san}` : m.san;
+    const j = r?.moves[i], e = ev?.[i + 1];
+    if (j && NAG[j.label]) t += ' ' + NAG[j.label];
+    const parts = [];
+    if (e && Math.abs(e[0]) !== MATE) parts.push(`[%eval${NB}${pgnEval(e[0])}]`);
+    if (m.clk) parts.push(`[%clk${NB}${m.clk}]`);
+    const better = j?.err ? playLine(g.fens[i], j.line) : null;
+    const bestSan = better?.moves[0]?.san;
+    if (j?.err) parts.push(`${cap(j.label)}.${bestSan ? ` ${bestSan} was best.` : ''}`);
+    if (parts.length) t += ` {${parts.join(' ')}}`;
+    if (bestSan) t += ` (${numberedSan(better, '...').join(' ')})`;
+    needNum = parts.length > 0 || !!bestSan;
+    toks.push(t);
+  });
+  toks.push(g.resultTag);
+  return headers.join('\n') + '\n\n' + wrap(toks.join(' ')) + '\n';
+}
+
+function exportMonth(kind) {
+  const games = filtered().filter((g) => !g.broken);
+  const base = `${S.user.toLowerCase()}-${S.ym}`;
+  if (kind === 'pgn') {
+    const done = games.filter((g) => g.analysis);
+    if (!done.length) return toast('No analysed games to export yet.');
+    download(`${base}-annotated.pgn`, done.map(annotatedPgn).join('\n'), 'application/x-chess-pgn');
+  } else if (kind === 'csv') {
+    const cols = ['date', 'url', 'colour', 'opponent', 'opponent_rating', 'my_rating', 'result', 'time_class', 'time_control', 'eco', 'opening', 'moves', 'accuracy', 'acpl', 'blunders', 'mistakes', 'inaccuracies', 'depth'];
+    const q = (v) => (/[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : v);
+    const rows = games.map((g) => {
+      const st = review(g)?.stats?.me;
+      return [new Date(g.end).toISOString(), g.url, g.myColor === 'w' ? 'white' : 'black', g.opp.username, g.opp.rating, g.me.rating, g.result, g.timeClass, g.timeControl,
+        g.opening?.eco || '', g.opening?.name || '', Math.ceil(g.moves.length / 2), st ? st.accuracy.toFixed(1) : '', st ? Math.round(st.acpl) : '',
+        st?.blunder ?? '', st?.mistake ?? '', st?.inaccuracy ?? '', g.analysis?.d ?? ''].map(q).join(',');
+    });
+    download(`${base}-summary.csv`, [cols.join(','), ...rows].join('\n') + '\n', 'text/csv');
+  } else {
+    const out = { user: S.user, month: S.ym, exported: new Date().toISOString(), games: {} };
+    for (const g of games) if (g.analysis) out.games[g.url] = g.analysis;
+    download(`${base}-analysis.json`, JSON.stringify(out), 'application/json');
+  }
+}
+
+// ---------- puzzles ----------
+// Each of your mistakes and blunders becomes a "find the better move" puzzle once its game is analysed.
+// Puzzles are self-contained, so they work across months without refetching games.
+// Only puzzles you got wrong come back. One solved at first sight, without the hint, is learned. A miss,
+// the hint or Show solution brings it back in a week, never the same day (straight after seeing the
+// answer, a repeat only tests short-term memory); each right answer after that pushes it out to two
+// weeks, then a month, and then it is learned. `box` counts those right answers; a miss resets it.
+const REVIEW_DAYS = [7, 14, 30];
+const LEARNED = 8.64e15; // `due` of a learned puzzle: the last valid date, and unlike Infinity it survives JSON
+const SCHEDULE = 2;      // `sv` of practice history kept under these rules
+
+// Practice history from the old schedule, where a right answer came back the next day, whether saved
+// here or synced from another device: solved every time means learned; solved after a miss moves to the
+// two-week or one-month review, counted from when it was last seen. A miss stays a week out.
+function upgrade(p) {
+  if (!p.tries || p.sv === SCHEDULE) return p;
+  const learned = p.box && (p.wins === p.tries || p.box >= REVIEW_DAYS.length);
+  const next = learned ? { box: REVIEW_DAYS.length, due: LEARNED } : p.box ? { due: (p.seen || Date.now()) + REVIEW_DAYS[p.box] * 864e5 } : {};
+  return { ...p, ...next, sv: SCHEDULE };
+}
+let puzzles = {};          // id -> puzzle, a mirror of the IndexedDB store
+// state: idle | solve | check | right | wrong | unknown | shown. `tried` means this showing is already graded.
+// mode: 'today', or a tag from TAGS when drilling one pattern.
+const PZ = { mode: 'today', queue: [], id: null, state: 'idle', tried: false, hinted: false, verdict: '', done: 0, right: 0, streak: 0, timer: 0 };
+let pg = null;
+
+const current = () => (PZ.id && puzzles[PZ.id]) || null;
+const accountUser = () => (S.user || settings.user).toLowerCase();
+const mine = (p) => !p.user || p.user === accountUser();
+const isNew = (p) => !p.tries;
+const reviewsDue = () => Object.values(puzzles).filter((p) => mine(p) && p.tries && p.due <= Date.now());
+
+// Thousands of mistakes are a library, not a to-do list. Each day brings the reviews that are due plus
+// a few new puzzles: the best lesson of different games, costliest and most recent first.
+const TODAY = 'cca:today';
+const today = () => new Date().toLocaleDateString('sv'); // YYYY-MM-DD, local time
+
+function priority(p) {
+  const days = (Date.now() - p.end) / 864e5;
+  return (p.drop ?? 0) + (days < 14 ? 20 : days < 60 ? 10 : 0) + (p.label === 'blunder' ? 10 : 0);
+}
+
+// Up to n new core puzzles, skipping ids already picked: at most one per game, and at most a third
+// sharing a main pattern, so a day isn't ten versions of the same lesson.
+function pickNew(n, taken = new Set()) {
+  const pool = Object.values(puzzles).filter((p) => mine(p) && p.core && isNew(p) && !taken.has(p.id)).sort((a, b) => priority(b) - priority(a));
+  // The same position reached in another game (the same opening slip) is the same lesson.
+  const seen = new Set(Object.values(puzzles).filter((p) => p.tries || taken.has(p.id)).map((p) => posKey(p.fen)));
+  const games = new Set(), perTag = {}, cap = Math.ceil(n / 3), out = [];
+  for (const pass of [true, false]) { // second pass fills up if variety runs out
+    for (const p of pool) {
+      if (out.length >= n) return out;
+      const tag = p.tags[0] || 'other';
+      if (games.has(p.url) || seen.has(posKey(p.fen)) || (pass && (perTag[tag] || 0) >= cap)) continue;
+      games.add(p.url);
+      seen.add(posKey(p.fen));
+      perTag[tag] = (perTag[tag] || 0) + 1;
+      out.push(p.id);
+    }
+  }
+  return out;
+}
+
+// Today's new puzzles are picked once and kept across reloads and tabs until the date changes.
+function todaysNew() {
+  let t = store.get(TODAY);
+  if (t?.day !== today() || t.user !== accountUser()) {
+    t = { day: today(), user: accountUser(), ids: pickNew(settings.daily) };
+    if (t.ids.length) store.set(TODAY, t); // an empty pick before puzzles load must not stick for the day
+  }
+  return t.ids.filter((id) => puzzles[id] && isNew(puzzles[id]));
+}
+
+function moreToday() {
+  const t = store.get(TODAY)?.day === today() ? store.get(TODAY) : { day: today(), user: accountUser(), ids: [] };
+  const add = pickNew(settings.daily, new Set(t.ids));
+  t.ids.push(...add);
+  store.set(TODAY, t);
+  return add;
+}
+
+const leftToday = () => reviewsDue().length + todaysNew().length;
+
+// Drill order for one pattern: unseen first, then the ones you keep getting wrong, costliest first.
+function drill(ids) {
+  return ids.map((id) => puzzles[id]).filter(Boolean)
+    .sort((a, b) => isNew(b) - isNew(a) || a.box - b.box || kindOf(a).order(a, b))
+    .slice(0, settings.daily).map((p) => p.id);
+}
+const patternIds = (tag) => Object.values(puzzles).filter((p) => mine(p) && p.tags?.includes(tag)).map((p) => p.id);
+
+async function loadPuzzles() {
+  const all = await tx('puzzles', 'readwrite', async (os) => (await req(os('puzzles').getAll())).map((p) => {
+    const q = upgrade(p);
+    if (q !== p) os('puzzles').put(q);
+    return q;
+  }));
+  puzzles = Object.fromEntries(all.map((p) => [p.id, p]));
+  puzzlesChanged();
+}
+
+// Applies saved changes to the mirror, and tells the other tabs when they came from this one.
+function applyPuzzles(changes, local) {
+  for (const { fresh, gone } of changes) {
+    gone.forEach((id) => delete puzzles[id]);
+    fresh.forEach((p) => (puzzles[p.id] = p));
+  }
+  if (local) channel.postMessage({ puzzles: changes });
+  puzzlesChanged();
+}
+
+function puzzlesChanged() {
+  renderPuzzleCount();
+  if (S.view === 'puzzles' && PZ.state !== 'check') renderPuzzle();
+  if (S.view === 'patterns') renderPatterns();
+}
+
+function renderPuzzleCount() {
+  const n = leftToday(), el = $('#pzCount');
+  el.textContent = n;
+  el.hidden = !n;
+}
+
+// The puzzles one analysed game yields, without practice history.
+function puzzlesOf(g) {
+  const r = review(g), out = [];
+  r.moves.forEach((j, i) => {
+    const m = g.moves[i];
+    if (!m.mine || !j?.best || (j.label !== 'mistake' && j.label !== 'blunder')) return;
+    // Skip positions that were already lost, and moves that barely changed the outcome (+6 to +5 is
+    // a 100 cp "mistake" but still winning): neither teaches much.
+    const pov = (s) => clamp(m.color === 'w' ? s : -s);
+    const drop = winPct(pov(j.before)) - winPct(pov(j.after));
+    if (pov(j.before) < -300 || drop < MIN_SWING) return;
+    out.push({
+      drop,
+      kind: 'mistake', id: `${g.url}#${i + 1}`, url: g.url, gid: g.id, ym: g.ym, user: g.me.username.toLowerCase(), ply: i + 1,
+      fen: g.fens[i], color: m.color, no: m.no, played: m.san, playedUci: m.uci,
+      best: j.best, line: j.line, reply: j.reply, before: j.before, after: j.after, label: j.label, depth: g.analysis.d,
+      opp: g.opp.username, oppRating: g.opp.rating, end: g.end, tc: `${fmtTc(g.timeControl)} ${g.timeClass}`,
+      ...mistakeFacts(g, m, i, j),
+    });
+  });
+  // One puzzle per idea: mistakes a few moves apart with the same better move, or punished on the same
+  // square, are one lesson (missing Qxg4+ twice in a row). Keep the costliest.
+  const merged = [];
+  for (const p of out) {
+    const q = merged.at(-1);
+    const same = q && p.ply - q.ply <= 4 && (p.best === q.best || (p.reply && p.reply.slice(2, 4) === q.reply.slice(2, 4)));
+    if (!same) merged.push(p);
+    else if (p.drop > q.drop) merged[merged.length - 1] = p;
+  }
+  // Core puzzles feed the daily set: the game's two costliest real lessons (a tactic or a blunder).
+  // The rest stay in the library for pattern drills and the stats.
+  const lesson = (p) => p.label === 'blunder' || p.tags.some((t) => TACTICS.has(t));
+  const core = new Set(merged.filter(lesson).sort((a, b) => b.drop - a.drop).slice(0, 2).map((p) => p.id));
+  return merged.map((p) => ({ ...p, core: core.has(p.id) }));
+}
+
+// Bump when puzzlesOf changes what it derives, so every game's puzzles are rebuilt once.
+const PUZZLE_VERSION = 1;
+
+// Writes rebuilt puzzles (mistakes or opening cards) in the caller's transaction and deletes the `gone`
+// ids. Each keeps its practice history, the newest from this device or another, so rebuilding never
+// resets progress; a record whose derivation stamp (`sig`) and history are unchanged isn't rewritten.
+// Returns the change for applyPuzzles.
+function saveDerived(os, fresh, olds, theirs, gone) {
+  const old = new Map(olds.filter(Boolean).map((p) => [p.id, p]));
+  const put = fresh.flatMap((p) => {
+    const o = old.get(p.id), history = later(o, theirs.get(p.id));
+    if (o?.sig === p.sig && history === o) return [];
+    const q = { ...p, box: 0, due: Date.now(), tries: 0, wins: 0, ...(history && progressOf(history)) };
+    os('puzzles').put(q);
+    return [q];
+  });
+  gone.forEach((id) => os('puzzles').delete(id));
+  return put.length || gone.length ? [{ fresh: put, gone }] : [];
+}
+
+// Rebuilds, in one transaction, the puzzles of analysed games whose analysis or derivation changed since
+// they were built, so an unchanged game costs nothing. Puzzles whose position no longer qualifies go.
+async function harvestGames(games) {
+  const done = games.filter((g) => g.analysis);
+  if (!done.length) return;
+  const theirs = await attemptsOf(accountUser());
+  const sig = (g) => `${PUZZLE_VERSION}:${g.analysis.t}`;
+  const changes = await tx('puzzles', 'readwrite', async (os) => {
+    const olds = await Promise.all(done.map((g) => req(os('puzzles').index('url').getAll(g.url))));
+    return done.flatMap((g, k) => {
+      if (olds[k].length && olds[k].every((p) => p.sig === sig(g))) return [];
+      const fresh = puzzlesOf(g).map((p) => ({ ...p, sig: sig(g) })), ids = new Set(fresh.map((p) => p.id));
+      return saveDerived(os, fresh, olds[k], theirs, olds[k].filter((p) => !ids.has(p.id)).map((p) => p.id));
+    });
+  });
+  if (changes.length) applyPuzzles(changes, true);
+}
+
+// ---------- opening drills ----------
+// Positions from the first 12 moves that your games keep reaching, where you went wrong at least once
+// (a move costing 50 cp or more while the game was still roughly level). Each becomes a card in the
+// puzzle store, keyed by position rather than game, so one habit is one card however often it recurs.
+// Cards are rebuilt from every loaded game and keep their practice history like puzzles do. Unlike
+// mistakes, cards have no `url`: they span games, and the url index finds the puzzles of one game.
+const OPENING_PLIES = 24;
+const OPENING_VERSION = 1;
+const cardId = (user, key) => `open:${user}:${key}`;
+const openingIds = () => Object.values(puzzles).filter((p) => p.kind === 'opening' && mine(p)).map((p) => p.id);
+
+function openingCards(user) {
+  const cards = [];
+  for (const [key, visits] of tree) {
+    const mineHere = visits.filter(({ g, ply }) => ply < OPENING_PLIES && g.moves[ply].mine && evs(g));
+    if (mineHere.length < 2) continue;
+    const judged = mineHere.map(({ g, ply }) => ({ g, ply, m: g.moves[ply], j: judge(g, g.moves[ply], ply, evs(g)[ply], evs(g)[ply + 1]) })).filter((x) => x.j);
+    const pov = (x, s) => clamp(x.m.color === 'w' ? s : -s);
+    const slips = judged.filter((x) => x.j.loss >= TH.inaccuracy && x.m.uci !== x.j.best && Math.abs(pov(x, x.j.before)) < 300);
+    if (!slips.length) continue;
+    // The slip you make most often here, from its latest game, stands for the card.
+    const often = {};
+    for (const x of slips) often[x.m.uci] = (often[x.m.uci] || 0) + 1;
+    const top = Object.keys(often).sort((a, b) => often[b] - often[a])[0];
+    const s = slips.filter((x) => x.m.uci === top).sort((a, b) => b.g.end - a.g.end)[0];
+    const moves = {};
+    for (const x of judged) {
+      moves[x.m.uci] ||= { san: x.m.san, n: 0, loss: 0 };
+      moves[x.m.uci].n++; moves[x.m.uci].loss += Math.min(x.j.loss, CLAMP);
+    }
+    const g = s.g, eco = [...g.fens.slice(0, s.ply + 1)].reverse().map((f) => ECO?.[posKey(f)]).find(Boolean);
+    cards.push({
+      kind: 'opening', id: cardId(user, key), user, sig: [OPENING_VERSION, judged.length, slips.length, s.j.best, s.m.uci, g.end].join('|'),
+      fen: g.fens[s.ply], color: s.m.color, no: s.m.no, best: s.j.best, line: s.j.line, before: s.j.before, depth: g.analysis?.d || settings.depth,
+      played: s.m.san, playedUci: s.m.uci, after: s.j.after, reply: s.j.reply, label: s.j.label,
+      count: judged.length, slips: slips.length, cost: winPct(pov(s, s.j.before)) - winPct(pov(s, s.j.after)), opening: eco?.[1] || g.opening?.name || '',
+      moves: Object.values(moves).sort((a, b) => b.n - a.n).map((x) => ({ san: x.san, n: x.n, label: labelFor(x.loss / x.n, false) })),
+      from: { url: g.url, gid: g.id, ym: g.ym, ply: s.ply + 1 }, // the latest game with this slip, for Open game
+    });
+  }
+  return cards;
+}
+
+async function harvestOpenings() {
+  const user = accountUser(), theirs = await attemptsOf(user);
+  const fresh = openingCards(user), ids = new Set(fresh.map((c) => c.id));
+  // Cards that stop qualifying go, except practised ones: a month that failed to load would otherwise
+  // take their history with it.
+  const gone = openingIds().filter((id) => !ids.has(id) && !puzzles[id].tries);
+  const changes = await tx('puzzles', 'readwrite', async (os) =>
+    saveDerived(os, fresh, await Promise.all(fresh.map((c) => req(os('puzzles').get(c.id)))), theirs, gone));
+  if (changes.length) applyPuzzles(changes, true);
+}
+
+// Games were loaded or analysed: the explorer's counts follow, and once the whole account is in, the
+// opening cards, batched because background analysis finishes a game every few seconds.
+let openingsTimer = 0;
+function gamesChanged() {
+  ratingModel = null;
+  renderExplorer();
+  if (S.cur) { renderPlayers(); renderReview(); }
+  if (!S.allLoaded) return;
+  if (S.view === 'summary') renderSummary();
+  clearTimeout(openingsTimer);
+  openingsTimer = setTimeout(harvestOpenings, 5000);
+}
+
+// The two kinds of puzzle share the board, the checking and the schedule. They differ in how a card
+// is introduced, what it asks, what you played before, which game it opens and how a drill orders them.
+const KINDS = {
+  mistake: {
+    context: (p) => `Move ${p.no}${p.color === 'w' ? '.' : '…'} of your game vs ${esc(p.opp)} (${p.oppRating}), ${fmtDay(p.end)}, ${p.tc}.`,
+    prompt: (p) => `You played ${LABEL[p.label]} here. Find the better move.`,
+    history: (p) => `In the game you played <b>${p.played}</b><span class="lbl lbl-${p.label}">${GLYPH[p.label]}</span> (${fmtEval(p.after)}).`,
+    opponent: (p) => esc(p.opp),
+    game: (p) => p, // url, gid, ym, ply
+    order: (a, b) => priority(b) - priority(a),
+  },
+  opening: {
+    context: (p) => `${p.opening ? `${esc(p.opening)}, move` : 'Move'} ${p.no}. You reached this position in ${p.count} games and went wrong in ${p.slips}.`,
+    prompt: () => 'Find the best move in this position.',
+    history: (p) => `In your games: ${p.moves.map((m) => `<b>${m.san}</b><span class="lbl lbl-${m.label}">${GLYPH[m.label]}</span> ${m.n}×`).join(', ')}.`,
+    opponent: () => 'Your opponent',
+    game: (p) => p.from,
+    order: (a, b) => b.slips - a.slips || b.cost - a.cost,
+  },
+};
+const kindOf = (p) => KINDS[p.kind];
+
+// What the Puzzles tab can work through: today's set (due reviews plus new puzzles), your opening
+// cards, or the puzzles of one pattern, a drill of settings.daily at a time.
+const drillSet = (label, ids, blurb) => ({ label, ids, blurb, start: () => startQueue(drill(ids())) });
+const SETS = {
+  today: { label: "Today's puzzles", start: () => startToday() },
+  openings: drillSet('Your openings', openingIds, (n) => `${n} opening positions you keep reaching and went wrong in at least once`),
+  ...Object.fromEntries(Object.entries(TAGS).map(([t, label]) => [t, drillSet(label, () => patternIds(t), (n) => `${n} puzzles where you ${label.toLowerCase()}`)])),
+};
+
+function openPuzzles() {
+  pg ||= Chessground($('#pBoard'), {
+    coordinates: true, animation: { enabled: true, duration: 150 }, highlight: { lastMove: true, check: true },
+    movable: { free: false, color: undefined, showDests: true, events: { after: (from, to) => tryMove(from, to) } },
+    premovable: { enabled: false },
+  });
+  pg.redrawAll();
+  if (!current() && PZ.mode === 'today' && leftToday()) startToday();
+  else renderPuzzle();
+}
+
+function startQueue(ids) {
+  clearInterval(PZ.timer);
+  PZ.queue = ids;
+  nextPuzzle();
+}
+
+// Reviews that are due, oldest first, then today's new puzzles.
+const startToday = () => startQueue([...reviewsDue().sort((a, b) => a.due - b.due).map((p) => p.id), ...todaysNew()]);
+
+// A puzzle is the whole combination, not only its first move: after each right move the opponent's best
+// reply is played and you continue, for as long as the engine's best line stays forcing (a check, a
+// capture or a promotion that still wins something) or leads to mate, up to MAX_STEPS of your moves.
+// PZ.pos/best/eval/line describe the position you are solving now; PZ.path holds every move so far.
+const MAX_STEPS = 6;
+
+function nextPuzzle() {
+  clearInterval(PZ.timer);
+  let p = null;
+  while (!p && PZ.queue.length) p = puzzles[PZ.queue.shift()] || null;
+  Object.assign(PZ, {
+    id: p?.id ?? null, state: p ? 'solve' : 'idle', tried: false, hinted: false, verdict: '',
+    pos: p?.fen, best: p?.best, eval: p?.before, line: p?.line, path: [], step: 0,
+  });
+  if (p) pzBoard(p.fen, undefined, true);
+  renderPuzzle();
+}
+
+function legalDests(c) {
+  const d = new Map();
+  for (const m of c.moves({ verbose: true })) d.set(m.from, [...(d.get(m.from) || []), m.to]);
+  return d;
+}
+
+function pzBoard(fen, lastMove, movable) {
+  const c = new Chess(fen), turn = c.turn() === 'w' ? 'white' : 'black';
+  pg.set({
+    fen, lastMove, check: c.inCheck(), turnColor: turn, orientation: current().color === 'w' ? 'white' : 'black',
+    movable: { color: movable ? turn : undefined, dests: movable ? legalDests(c) : new Map() },
+  });
+  pg.setAutoShapes([]);
+  $('#pBoard').style.removeProperty('--mv');
+}
+
+const combo = (p, path) => numberedSan(playLine(p.fen, path.join(' ')), '…').join(' ');
+
+// Material you come out ahead by over the moves played, counting the last capture too.
+function gain(p, path) {
+  let n = 0;
+  for (const m of playLine(p.fen, path.join(' ')).moves) {
+    const v = (m.captured ? VAL[m.captured] : 0) + (m.promotion ? VAL[m.promotion] - 1 : 0);
+    n += m.color === p.color ? v : -v;
+  }
+  return n;
+}
+
+async function tryMove(from, to) {
+  const p = current();
+  if (!p || PZ.state !== 'solve') return;
+  const c = new Chess(PZ.pos);
+  const promotion = c.get(from)?.type === 'p' && /[18]$/.test(to) ? 'q' : undefined;
+  const mv = c.move({ from, to, promotion });
+  pzBoard(c.fen(), [from, to], false);
+  Object.assign(PZ, { state: 'check', verdict: '' });
+  renderPuzzle();
+  let v;
+  try { v = await checkStep(p, mv, c); }
+  catch { v = { ok: null, text: "The engine isn't available, so this move can't be checked." }; }
+  if (PZ.id !== p.id) return; // moved on while the engine was thinking
+  if (v.ok != null) {
+    pg.setAutoShapes([v.ok ? badge(to, 'best', '✓') : badge(to, 'blunder', '✗')]);
+    $('#pBoard').style.setProperty('--mv', `var(--${v.ok ? 'best' : 'blunder'})`);
+  }
+  if (!v.ok) {
+    if (v.ok === false && !PZ.tried) grade(p, false);
+    PZ.tried ||= v.ok === false;
+    Object.assign(PZ, { state: v.ok === false ? 'wrong' : 'unknown', verdict: v.text });
+    return renderPuzzle();
+  }
+  PZ.path.push(mv.lan);
+  PZ.step++;
+  if (!v.reply) {
+    if (!PZ.tried) grade(p, true);
+    PZ.tried = true;
+    Object.assign(PZ, { state: 'right', verdict: v.text });
+    return renderPuzzle();
+  }
+  Object.assign(PZ, { state: 'reply', verdict: v.text });
+  renderPuzzle();
+  await new Promise((r) => setTimeout(r, 700));
+  if (PZ.id !== p.id) return;
+  const r = c.move({ from: v.reply.slice(0, 2), to: v.reply.slice(2, 4), promotion: v.reply[4] });
+  PZ.path.push(r.lan);
+  Object.assign(PZ, { pos: c.fen(), eval: v.next[0], line: v.next[1], best: v.next[1].split(' ')[0], state: 'solve', verdict: '' });
+  pzBoard(c.fen(), [r.from, r.to], true);
+  renderPuzzle();
+}
+
+const consequence = (f) => (f.mate ? 'leads to mate' : materialPhrase(f));
+
+// Scores seen from the side solving the puzzle.
+const mover = (p, s) => (p.color === 'w' ? s : -s);
+
+// One move of the combination: right if it's the engine's move or loses less than an inaccuracy.
+// When the combination goes on, also returns the opponent's reply and the next position's evaluation.
+async function checkStep(p, mv, c) {
+  const path = [...PZ.path, mv.lan];
+  if (c.isCheckmate()) return { ok: true, text: `<b>${combo(p, path)}</b>. Checkmate.` };
+  const { after, replyLine } = await scoreMove(p, mv, c);
+  const loss = clamp(mover(p, PZ.eval)) - clamp(mover(p, after));
+  if (loss >= TH.inaccuracy) return { ok: false, text: missText(p, mv, c, loss, after, replyLine) };
+  const alt = mv.lan !== PZ.best, reply = replyLine.split(' ')[0];
+  const next = reply && PZ.step + 1 < MAX_STEPS ? await continuation(p, c, reply) : null;
+  if (next) return { ok: true, reply, next, text: `${alt ? `<b>${mv.san}</b> works too.` : `Good: <b>${mv.san}</b>.`} ${kindOf(p).opponent(p)} replies…` };
+  return { ok: true, text: finishText(p, mv, path, after, alt) };
+}
+
+// The evaluation after your move and the opponent's best line from there. The engine's own move and
+// the move from the game are already known; anything else asks the engine.
+async function scoreMove(p, mv, c) {
+  if (mv.lan === PZ.best && PZ.line.split(' ')[1]) return { after: PZ.eval, replyLine: PZ.line.split(' ').slice(1).join(' ') };
+  if (PZ.step === 0 && mv.lan === p.playedUci) return { after: p.after, replyLine: p.reply };
+  const t = terminalScore(c);
+  const [after, replyLine] = t != null ? [t, ''] : await probe(c.fen(), p.depth, 12);
+  return { after, replyLine };
+}
+
+function missText(p, mv, c, loss, after, replyLine) {
+  const r = lineFacts(c.fen(), replyLine), how = consequence(r);
+  return `<b>${mv.san}</b> costs about ${(Math.min(loss, CLAMP) / 100).toFixed(1)} pawns (${fmtEval(PZ.eval)} to ${fmtEval(after)}).`
+    + (PZ.step === 0 && mv.lan === p.playedUci ? " That's the move you played in the game." : '')
+    + (r.san.length ? ` ${kindOf(p).opponent(p)} would answer <b>${r.san[0]}</b>${how ? `, which ${how}` : ''}.` : '');
+}
+
+// The position after the opponent's best reply, if the combination goes on from it: a mate for you, or
+// a forcing move (check, capture, promotion) that still wins something.
+async function continuation(p, c, reply) {
+  const fen = playLine(c.fen(), reply).fens[1];
+  const t = terminalScore(new Chess(fen));
+  const next = t != null ? [t, ''] : await probe(fen, p.depth, 12);
+  const first = next[1] && playLine(fen, next[1]).moves[0];
+  if (!first) return null;
+  const mating = isMate(next[0]) && mover(p, next[0]) > 0;
+  const forcing = (first.captured || first.promotion || first.san.includes('+')) && lineFacts(fen, next[1]).net >= 1;
+  return mating || forcing ? next : null;
+}
+
+// A one-move puzzle is described by the engine's line; a longer one by the moves you played.
+function finishText(p, mv, path, after, alt) {
+  if (PZ.step === 0 && !alt) {
+    const how = consequence(lineFacts(p.fen, p.line));
+    return `<b>${mv.san}</b> is the engine's move (${fmtEval(after)}).${how ? ` It ${how}.` : ''}`;
+  }
+  if (PZ.step === 0) return `<b>${mv.san}</b> works too (${fmtEval(after)}). The engine's move was <b>${lineFacts(p.fen, p.line).san[0]}</b>.`;
+  const won = gain(p, path);
+  return `<b>${combo(p, path)}</b>${won > 0 ? `, winning material (+${won})` : ''} (${fmtEval(after)}).`;
+}
+
+// Where an attempt leaves a puzzle. `solved` means right without the hint.
+function schedule(q, solved) {
+  const box = !solved ? 0 : q.tries ? q.box + 1 : REVIEW_DAYS.length; // right at first sight: learned
+  const due = box < REVIEW_DAYS.length ? Date.now() + REVIEW_DAYS[box] * 864e5 : LEARNED;
+  return { box: Math.min(box, REVIEW_DAYS.length), due, sv: SCHEDULE };
+}
+
+function grade(p, ok) {
+  const hinted = PZ.hinted;
+  tx('puzzles', 'readwrite', async (os) => {
+    const q = await req(os('puzzles').get(p.id));
+    if (!q) return null;
+    Object.assign(q, schedule(q, ok && !hinted), { seen: Date.now() });
+    q.tries++;
+    if (ok) q.wins++;
+    os('puzzles').put(q);
+    return q;
+  }).then((q) => {
+    if (!q) return;
+    applyPuzzles([{ fresh: [q], gone: [] }], true);
+    postAttempt(q);
+  });
+  PZ.done++;
+  if (ok) PZ.right++;
+  PZ.streak = ok ? PZ.streak + 1 : 0;
+}
+
+function playPuzzleLine(fen, pv) {
+  const p = current(), line = playLine(fen, pv);
+  clearInterval(PZ.timer);
+  pzBoard(fen, undefined, false);
+  let i = 0;
+  PZ.timer = setInterval(() => {
+    if (PZ.id !== p.id || ++i > line.moves.length) return clearInterval(PZ.timer);
+    const m = line.moves[i - 1];
+    pzBoard(line.fens[i], [m.from, m.to], false);
+  }, 800);
+}
+
+const puzzleActions = {
+  start: () => SETS[PZ.mode].start(),
+  more: () => startQueue(moreToday()),
+  hint: () => {
+    PZ.hinted = true;
+    pg.setAutoShapes([{ orig: PZ.best.slice(0, 2), brush: 'green' }]);
+    renderPuzzle();
+  },
+  retry: () => {
+    Object.assign(PZ, { state: 'solve', verdict: '' });
+    pzBoard(PZ.pos, undefined, true);
+    renderPuzzle();
+  },
+  // Shows the rest of the engine's line from where you are, asking for the full length so a mating
+  // attack plays out to mate.
+  solution: async () => {
+    const p = current();
+    if (!PZ.tried) grade(p, false);
+    PZ.tried = true;
+    Object.assign(PZ, { state: 'check', verdict: 'Working out the full line…' });
+    renderPuzzle();
+    let pv = PZ.line;
+    try { pv = (await probe(PZ.pos, p.depth, 20))[1] || pv; } catch {}
+    if (PZ.id !== p.id) return;
+    // A mate plays out in full; any other win stops after its last check or capture in the first 8 moves.
+    const full = playLine(PZ.pos, pv);
+    if (!full.mate) {
+      const last = full.moves.slice(0, 8).map((m) => !!(m.captured || m.promotion || m.san.includes('+'))).lastIndexOf(true);
+      pv = pv.split(' ').slice(0, Math.max(1, last + 1)).join(' ');
+    }
+    const f = lineFacts(PZ.pos, pv), how = consequence(f);
+    Object.assign(PZ, {
+      state: 'shown', shown: [PZ.pos, pv],
+      verdict: `The engine's line: <b>${numberedSan(playLine(PZ.pos, pv), '…').join(' ')}</b>${how ? `, which ${how}` : ''}.`,
+    });
+    playPuzzleLine(PZ.pos, pv);
+    renderPuzzle();
+  },
+  line: () => (PZ.state === 'shown' ? playPuzzleLine(...PZ.shown) : playPuzzleLine(current().fen, PZ.path.join(' '))),
+  next: () => nextPuzzle(),
+  game: async () => {
+    const { url, ym, gid, ply } = kindOf(current()).game(current());
+    if (!S.byUrl.has(url) && !ym) return window.open(url, '_blank', 'noopener');
+    setView('games');
+    if (!S.byUrl.has(url)) await start(S.user || settings.user, ym, gid);
+    const g = S.byUrl.get(url);
+    if (g) select(g, ply);
+  },
+};
+
+function relTime(t) {
+  const h = (t - Date.now()) / 36e5;
+  if (h < 1) return 'within the hour';
+  if (h < 20) return `in ${Math.round(h)} hour${Math.round(h) === 1 ? '' : 's'}`;
+  const d = Math.max(1, Math.round(h / 24));
+  return d === 1 ? 'tomorrow' : `in ${d} days`;
+}
+
+function puzzleCard(p) {
+  const btn = (act, text, primary = false) => `<button data-pz="${act}"${primary ? ' class="primary"' : ''}>${text}</button>`;
+  const status = {
+    solve: `<div class="pz-status">${PZ.step ? `Good so far: <b>${combo(p, PZ.path)}</b>. Keep going.` : kindOf(p).prompt(p)}${PZ.hinted ? ' The circled piece moves.' : ''}</div>`,
+    check: `<div class="pz-status check">${PZ.verdict || 'Checking your move…'}</div>`,
+    reply: `<div class="pz-status right">${PZ.verdict}</div>`,
+    right: `<div class="pz-status right"><b>Correct.</b> ${PZ.verdict}</div>`,
+    wrong: `<div class="pz-status wrong"><b>Not quite.</b> ${PZ.verdict}</div>`,
+    unknown: `<div class="pz-status">${PZ.verdict}</div>`,
+    shown: `<div class="pz-status">${PZ.verdict}</div>`,
+  }[PZ.state];
+  const actions = {
+    solve: [PZ.hinted ? '' : btn('hint', 'Hint'), btn('solution', 'Show solution')],
+    check: [],
+    reply: [],
+    right: [btn('next', 'Next puzzle', true), btn('line', 'Replay'), btn('game', 'Open game')],
+    wrong: [btn('retry', 'Try again', true), btn('solution', 'Show solution'), btn('next', 'Skip')],
+    unknown: [btn('retry', 'Try again', true), btn('solution', 'Show solution'), btn('next', 'Skip')],
+    shown: [btn('next', 'Next puzzle', true), btn('line', 'Replay'), btn('game', 'Open game')],
+  }[PZ.state];
+  const answered = !['solve', 'check', 'reply'].includes(PZ.state);
+  return `<div class="pz-task"><span class="pc pc-${p.color}"></span>${p.color === 'w' ? 'White' : 'Black'} to move</div>
+    <p class="pz-ctx">${kindOf(p).context(p)}</p>
+    ${p.tries && !PZ.tried ? `<p class="pz-ctx">Review: you've tried this ${p.tries === 1 ? 'once' : `${p.tries} times`}, ${p.wins ? `right ${p.wins === 1 ? 'once' : `${p.wins} times`}` : 'not solved yet'}.</p>` : ''}
+    ${status}
+    ${answered ? `<p class="pz-ctx">${kindOf(p).history(p)}</p>` : ''}
+    <div class="pz-actions">${actions.join('')}</div>`;
+}
+
+function renderPuzzle() {
+  const all = Object.values(puzzles).filter((q) => mine(q) && q.kind === 'mistake');
+  const reviews = reviewsDue().length, fresh = todaysNew().length, left = reviews + fresh;
+  const lessons = all.filter((q) => q.core && isNew(q)).length;
+  const set = SETS[PZ.mode], sizes = Object.fromEntries(Object.entries(SETS).filter(([, x]) => x.ids).map(([k, x]) => [k, x.ids().length]));
+  const p = current();
+  const btn = (act, text, primary = false) => `<div class="pz-actions"><button data-pz="${act}"${primary ? ' class="primary"' : ''}>${text}</button></div>`;
+  const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+  let body;
+  if (p) body = puzzleCard(p);
+  else if (!all.length) body = '<p class="muted">No puzzles yet. Each of your mistakes and blunders becomes a puzzle once its game is analysed. Load a month in Games and press Analyse.</p>';
+  else if (set.ids) body = `<p>${set.blurb(sizes[PZ.mode])}, ${settings.daily} at a time: unseen first, then the ones you got wrong.</p>${btn('start', 'Start', true)}`;
+  else if (left) body = `<p>Today: ${[reviews && plural(reviews, 'review'), fresh && plural(fresh, 'new puzzle')].filter(Boolean).join(' and ')}.</p>${btn('start', 'Start', true)}`;
+  else {
+    const next = all.filter((q) => q.tries && q.due < LEARNED).map((q) => q.due).sort((a, b) => a - b)[0];
+    body = `<p>Done for today.${next ? ` Your next review is due ${relTime(next)}.` : ''}</p>${lessons ? btn('more', `${settings.daily} more`) : ''}`;
+  }
+  $('#puzzlePanel').innerHTML = `
+    <div class="pz-top"><b>Puzzles from your games</b>
+      <select id="pzSet" aria-label="Which puzzles">${Object.entries(SETS).filter(([k, x]) => !x.ids || sizes[k])
+        .map(([k, x]) => `<option value="${k}">${x.label}${x.ids ? ` (${sizes[k]})` : ''}</option>`).join('')}</select></div>
+    ${body}
+    <div class="pz-stats"><span>${left} left today</span><span>${lessons} new lessons</span><span>${all.length} in the library</span>${PZ.done ? `<span>This session ${PZ.right}/${PZ.done}</span><span>Streak ${PZ.streak}</span>` : ''}</div>`;
+  $('#pzSet').value = PZ.mode;
+}
+
+$('#puzzlePanel').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-pz]');
+  if (b) puzzleActions[b.dataset.pz]();
+});
+$('#puzzlePanel').addEventListener('change', (e) => {
+  if (e.target.id !== 'pzSet') return;
+  PZ.mode = e.target.value;
+  puzzleActions.start();
+});
+$('#clearPuzzles').addEventListener('click', () => {
+  if (!confirm('Delete all puzzles and their practice history? They are rebuilt from your analysed games as you load each month.')) return;
+  Object.assign(PZ, { queue: [], id: null, state: 'idle' });
+  tx('puzzles', 'readwrite', (os) => { os('puzzles').clear(); }).then(() => {
+    puzzles = {};
+    channel.postMessage({ reload: true });
+    puzzlesChanged();
+  });
+});
+
+// ---------- patterns ----------
+// Counts of the engine's tags over your costly mistakes (the puzzle set), by month and overall, each
+// with a drill of its puzzles.
+
+// Only mistakes carrying the engine's facts; older ones gain them when their month is next loaded.
+const myMistakes = () => Object.values(puzzles).filter((p) => p.tags && mine(p));
+
+function practise(ids, mode = 'today') {
+  PZ.mode = mode;
+  setView('puzzles');
+  startQueue(drill(ids));
+}
+
+function renderPatterns() {
+  const el = $('#patternsView');
+  const list = myMistakes();
+  if (!list.length) {
+    el.innerHTML = '<div class="panel empty-note">No analysed mistakes yet. They appear as games get analysed.</div>';
+    return;
+  }
+  const games = new Set(list.map((p) => p.url)).size;
+  const months = [...new Set(list.map((p) => p.ym).filter(Boolean))].sort().reverse().slice(0, 6);
+  const count = (pred) => list.filter(pred).length;
+  const pct = (n) => Math.round((n / list.length) * 100);
+  const tagged = Object.entries(TAGS).map(([k, label]) => ({ k, label, ids: list.filter((p) => p.tags?.includes(k)).map((p) => p.id) }))
+    .filter((t) => t.ids.length).sort((a, b) => b.ids.length - a.ids.length);
+  const perGame = (ym, k) => {
+    const inMonth = list.filter((p) => p.ym === ym), g = new Set(inMonth.map((p) => p.url)).size;
+    return g ? (inMonth.filter((p) => p.tags?.includes(k)).length / g).toFixed(2) : '–';
+  };
+  const bars = (key, names) => Object.entries(names).map(([v, name]) => [name, count((p) => p[key] === v)]).filter(([, n]) => n)
+    .sort((a, b) => b[1] - a[1]).map(([name, n]) => `<tr><td>${cap(name)}</td><td class="n">${pct(n)}%</td><td><span class="pt-bar" style="width:${pct(n) * 2}px"></span></td></tr>`).join('');
+
+  el.innerHTML = `
+    <div class="panel"><h2><span>What the engine sees in your ${list.length} costly mistakes (${games} games)</span></h2>
+      <div class="table-wrap"><table><thead><tr><th>Pattern</th><th class="n">Mistakes</th><th class="n">Share</th>
+        ${months.map((ym) => `<th class="n">${monthLabel(ym).split(' ')[0].slice(0, 3)} / game</th>`).join('')}<th></th></tr></thead>
+      <tbody>${tagged.map((t) => `<tr><td>${t.label}</td><td class="n">${t.ids.length}</td><td class="n">${pct(t.ids.length)}%</td>
+        ${months.map((ym) => `<td class="n">${perGame(ym, t.k)}</td>`).join('')}
+        <td><button data-practise="${t.k}">Practise</button></td></tr>`).join('')}</tbody></table></div></div>
+    <div class="tiles">
+      <div class="panel"><h2>When</h2><div class="table-wrap"><table><tbody>${bars('phase', { opening: 'opening (moves 1–10)', middlegame: 'middlegame', endgame: 'endgame' })}</tbody></table></div></div>
+      <div class="panel"><h2>Piece you moved</h2><div class="table-wrap"><table><tbody>${bars('piece', PIECE_NAME)}</tbody></table></div></div>
+    </div>`;
+}
+
+$('#patternsView').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  if (b.dataset.practise) practise(patternIds(b.dataset.practise), b.dataset.practise);
+});
+
+// ---------- hash state: #user/yyyy-mm/live/123 ----------
+function setHash() {
+  if (!S.user) return;
+  const parts = [S.user, S.ym, S.cur?.id].filter(Boolean);
+  history.replaceState(null, '', '#' + parts.join('/'));
+}
+function readHash() {
+  const [user, ym, ...id] = decodeURIComponent(location.hash.slice(1)).split('/');
+  return { user, ym, id: id.join('/') };
+}
+
+// ---------- settings ----------
+async function renderCacheInfo() {
+  const [games, pz] = await tx(['analyses', 'puzzles'], 'readonly', (os) => Promise.all([req(os('analyses').count()), req(os('puzzles').count())]));
+  const used = (await navigator.storage?.estimate?.())?.usage;
+  $('#cacheInfo').textContent = `${games} analysed games, ${pz} puzzles${used ? `, ${(used / 1048576).toFixed(1)} MB on disk` : ''}`;
+}
+
+$('#setDepth').value = settings.depth;
+$('#setEngines').value = settings.engines;
+$('#setEngines').max = Math.max(1, cores);
+$('#setArrows').checked = settings.arrows;
+$('#setAuto').value = settings.auto;
+$('#setDaily').value = settings.daily;
+$('#setDaily').addEventListener('change', (e) => {
+  settings.daily = Math.max(1, Math.min(50, +e.target.value || 10));
+  e.target.value = settings.daily;
+  saveSettings();
+  store.del(TODAY); // re-pick today's new puzzles at the new size
+  renderPuzzleCount();
+  if (S.view === 'puzzles' && !current()) renderPuzzle();
+});
+$('#setAuto').addEventListener('change', (e) => {
+  settings.auto = e.target.value;
+  saveSettings();
+  sched.paused = settings.auto === 'off';
+  clearQueue();
+  if (S.cur) analyse(S.cur);
+  loadAccount(S.token);
+  updateMonthControls();
+});
+$('#setDepth').addEventListener('change', (e) => { settings.depth = Math.max(8, Math.min(24, +e.target.value || 18)); e.target.value = settings.depth; saveSettings(); });
+$('#setEngines').addEventListener('change', (e) => { settings.engines = Math.max(1, Math.min(16, +e.target.value || 1)); e.target.value = settings.engines; saveSettings(); resizePool(); });
+$('#setArrows').addEventListener('change', (e) => { settings.arrows = e.target.checked; saveSettings(); renderPosition(); });
+$('details.settings').addEventListener('toggle', (e) => { if (e.target.open) { renderCacheInfo(); renderPhone(); } });
+$('#clearCache').addEventListener('click', async () => {
+  if (!confirm('Delete every cached analysis from this browser? Your puzzles stay. Games analysed by the batch script are re-imported on the next load.')) return;
+  await tx('analyses', 'readwrite', (os) => { os('analyses').clear(); });
+  for (const g of allGames.values()) g.analysis = null;
+  renderList(); renderGame(); renderCacheInfo(); updateMonthControls();
+  if (S.view === 'summary') renderSummary();
+});
+
+// ---------- events ----------
+$('#loadForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const user = $('#user').value.trim();
+  if (!user) return;
+  if (user.toLowerCase() === S.user.toLowerCase()) refreshLatest(true);
+  else start(user, null);
+});
+$('#month').addEventListener('change', (e) => start(S.user, e.target.value));
+
+$('#gameList').addEventListener('click', (e) => {
+  const li = e.target.closest('li.game');
+  if (!li) return;
+  select(S.byUrl.get(li.dataset.url));
+  if (matchMedia('(max-width: 760px)').matches) $('.board-col').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+$('#moves').addEventListener('click', (e) => {
+  const li = e.target.closest('li[data-ply]');
+  if (li) go(+li.dataset.ply);
+});
+$('#summaryView').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-export]');
+  if (b) return exportMonth(b.dataset.export);
+  const tr = e.target.closest('tr[data-url]');
+  if (tr) { setView('games'); select(S.byUrl.get(tr.dataset.url)); }
+});
+
+for (const [id, key] of [['#fResult', 'result'], ['#fColor', 'color'], ['#fTc', 'tc']]) {
+  $(id).addEventListener('change', (e) => { S.filters[key] = e.target.value; onFilter(); });
+}
+$('#fBlunders').addEventListener('change', (e) => { S.filters.blunders = e.target.checked; onFilter(); });
+function onFilter() { renderList(); updateMonthControls(); if (S.view === 'summary') renderSummary(); }
+
+$('#analyseMonth').addEventListener('click', () => {
+  if (queueRunning()) sched.paused = true;
+  else { sched.paused = false; queueGames(filtered(), true); renderList(); }
+  updateMonthControls();
+});
+
+function setView(v) {
+  S.view = v;
+  document.body.dataset.view = v;
+  document.querySelectorAll('.tabs button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.view === v)));
+  $('#gamesView').hidden = v !== 'games';
+  $('#summaryView').hidden = v !== 'summary';
+  $('#puzzleView').hidden = v !== 'puzzles';
+  $('#patternsView').hidden = v !== 'patterns';
+  if (v === 'summary') renderSummary();
+  else if (v === 'patterns') renderPatterns();
+  else if (v === 'puzzles') openPuzzles();
+  else { cg.redrawAll(); renderGraph(); }
+}
+document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
+
+$('#bFirst').onclick = () => go(0);
+$('#bPrev').onclick = () => go(S.ply - 1);
+$('#bNext').onclick = () => go(S.ply + 1);
+$('#bLast').onclick = () => go(Infinity);
+$('#bMoment').onclick = () => jumpMoment(1);
+$('#coach').addEventListener('mouseover', (e) => {
+  const b = e.target.closest('button[data-line]');
+  if (!b) return;
+  const from = b.dataset.line === 'better' ? S.ply - 1 : S.ply;
+  const u = evs(S.cur)?.[from]?.[1].split(' ')[0];
+  if (u) cg.setAutoShapes([arrowTo(u, b.dataset.line === 'better' ? 'green' : 'red')]);
+});
+$('#coach').addEventListener('mouseout', (e) => {
+  const b = e.target.closest('button[data-line]');
+  if (b && !b.contains(e.relatedTarget)) cg.setAutoShapes(shown().shapes);
+});
+$('#coach').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  if (b.dataset.line) tryLine(b.dataset.line);
+  else if (b.dataset.act === 'exit') stopLine();
+  else if (b.dataset.act === 'best') playBest();
+  else if (b.dataset.act) step(b.dataset.act === 'next' ? 1 : -1);
+});
+$('#onlyErrors').addEventListener('change', (e) => { S.onlyErrors = e.target.checked; renderGame(); });
+$('#paneTabs').addEventListener('click', (e) => { const b = e.target.closest('[data-pane]'); if (b) setPane(b.dataset.pane); });
+$('#review').addEventListener('click', (e) => { if (e.target.closest('[data-rv=start]')) startReview(); });
+$('#explorer').addEventListener('click', (e) => {
+  const row = e.target.closest('tr[data-uci]'), act = e.target.closest('[data-ex]')?.dataset.ex;
+  if (row) boardMove(row.dataset.uci.slice(0, 2), row.dataset.uci.slice(2, 4), row.dataset.uci[4]);
+  else if (act === 'best') playBest();
+  else if (act === 'drill') practise([cardId(accountUser(), posKey(shown().fen))], 'openings');
+});
+$('#reanalyse').addEventListener('click', () => {
+  if (!S.cur) return;
+  analyse(S.cur, true);
+  dirty(S.cur);
+});
+$('#exportGame').addEventListener('click', () => {
+  const g = S.cur;
+  if (g) download(`${S.user.toLowerCase()}-${g.id.replace('/', '-')}.pgn`, annotatedPgn(g), 'application/x-chess-pgn');
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.target instanceof Element && e.target.closest('input, select, textarea')) return;
+  if (e.metaKey || e.ctrlKey || e.altKey || !S.cur || S.view !== 'games') return;
+  const k = {
+    ArrowLeft: () => step(-1), ArrowRight: () => step(1), Escape: () => stopLine(), Home: () => go(0), End: () => go(Infinity),
+    ArrowUp: () => jumpMoment(-1), ArrowDown: () => jumpMoment(1),
+    f: () => { S.flipped = !S.flipped; renderGame(); }, h: () => { S.hint = !S.hint; renderPosition(); },
+  }[e.key];
+  if (k) { e.preventDefault(); k(); }
+});
+
+const graph = $('#graph'), tip = $('#gTip');
+const plyAt = (e) => {
+  const r = graph.getBoundingClientRect();
+  return Math.round(((e.clientX - r.left) / r.width) * Math.max(1, S.cur.fens.length - 1));
+};
+graph.addEventListener('click', (e) => { if (S.cur) go(plyAt(e)); });
+graph.addEventListener('pointermove', (e) => {
+  const g = S.cur;
+  if (!g) return;
+  const p = Math.max(0, Math.min(g.fens.length - 1, plyAt(e)));
+  const m = g.moves[p - 1], ev = evs(g)?.[p], j = review(g)?.moves[p - 1];
+  tip.textContent = (m ? `${moveName(m)}${j && j.label !== 'book' ? ' ' + GLYPH[j.label] : ''}` : 'Start') + (ev ? ` ${fmtEval(ev[0])}` : '');
+  tip.hidden = false;
+  const r = graph.getBoundingClientRect();
+  tip.style.left = Math.min(r.width - tip.offsetWidth - 4, Math.max(4, e.clientX - r.left + 10)) + 'px';
+});
+graph.addEventListener('pointerleave', () => (tip.hidden = true));
+
+let resizeTimer;
+window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { cg.redrawAll(); pg?.redrawAll(); renderGraph(); }, 100); });
+
+// Another tab saved an analysis or puzzle progress: pick it up without redoing the work.
+channel.onmessage = async ({ data }) => {
+  if (data.puzzles) applyPuzzles(data.puzzles, false);
+  if (data.reload) loadPuzzles();
+  const g = data.analysed && allGames.get(data.analysed);
+  if (!g || g.analysis) return;
+  const a = await tx('analyses', 'readonly', (os) => req(os('analyses').get(g.url)));
+  if (!fits(g, a)) return;
+  g.analysis = a; g.work = null;
+  const i = sched.queue.indexOf(g);
+  if (i >= 0) sched.queue.splice(i, 1);
+  if (sched.focus === g) sched.focus = null;
+  dirty(g, true);
+};
+
+// Coming back to the app picks up what the other device practised meanwhile.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden || !S.user) return;
+  sendOutbox();
+  mergeAttempts(accountUser(), true);
+  refreshLatest();
+});
+setInterval(() => { if (!document.hidden) refreshLatest(); }, 3 * 60000);
+
+// ---------- boot ----------
+const storageReady = migrate().catch(() => {}).then(loadPuzzles);
+// Attempts from before syncing existed are sent once, when the Mac app is serving the page.
+storageReady.then(async () => {
+  if (store.get('cca:synced') || !(await fetch('__ping').then((r) => r.ok).catch(() => false))) return;
+  Object.values(puzzles).filter((p) => p.tries).forEach(postAttempt);
+  store.set('cca:synced', true);
+});
+sendOutbox();
+// The desktop app quits a few minutes after no open tab has pinged it.
+const ping = () => fetch('__ping', { cache: 'no-store' }).catch(() => {});
+ping();
+setInterval(ping, 30000);
+renderGame();
+renderPuzzleCount();
+setPane(settings.pane === 'explorer' ? 'explorer' : 'moves');
+// On a phone the puzzles come first.
+if (touch && matchMedia('(max-width: 760px)').matches) setView('puzzles');
+const h = readHash();
+const bootUser = h.user || settings.user;
+if (bootUser) {
+  $('#user').value = bootUser;
+  start(bootUser, h.user ? h.ym : null, h.id); // no link: the newest month, so the latest game
+}
+</script>
+</body>
+</html>

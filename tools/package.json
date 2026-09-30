@@ -1,0 +1,13 @@
+{
+  "name": "chess-analyser-tools",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "eco": "node build-eco.mjs",
+    "batch": "node batch.mjs",
+    "vendor": "node vendor.mjs"
+  },
+  "dependencies": {
+    "chess.js": "1.4.0"
+  }
+}

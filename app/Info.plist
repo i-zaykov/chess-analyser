@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key><string>Chess Analyser</string>
+  <key>CFBundleDisplayName</key><string>Chess Analyser</string>
+  <key>CFBundleIdentifier</key><string>local.chess-analyser</string>
+  <key>CFBundleExecutable</key><string>chess-analyser</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>0.1</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
+  <key>LSMinimumSystemVersion</key><string>12.0</string>
+  <!-- No Dock icon: the app is a background server that quits when the last tab closes. -->
+  <key>LSUIElement</key><true/>
+</dict>
+</plist>

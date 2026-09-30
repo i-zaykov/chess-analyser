@@ -1,0 +1,4 @@
+tools/node_modules/
+tools/.engine/
+data/*/
+.DS_Store
