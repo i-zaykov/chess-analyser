@@ -1,6 +1,5 @@
 // Downloads the page's third-party files into ../vendor, so the app loads nothing from a CDN.
 // The Mac app compiles them in (app/src/main.rs). Run after changing a version: npm run vendor
-// The Gemini SDK, used only by the online coach report, still comes from the CDN.
 import { mkdirSync, writeFileSync } from 'node:fs';
 
 const CG = 'https://cdn.jsdelivr.net/npm/chessground@9.2.1';
