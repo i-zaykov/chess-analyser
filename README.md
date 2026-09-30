@@ -17,6 +17,8 @@ The page and the opening table are compiled into the app. After changing `index.
 
 ## What it does
 
+- The design follows the Commercial Admin design system (green-tinted neutrals, Figtree and Bricolage Grotesque, hairline cards, bundled in `vendor/fonts`), with a classic wood board and chess.com-style move badges. The page is light-only. Wide screens show games, board and review side by side; medium screens put the games under the board; phones get the two-screen layout.
+
 - Loads the archive list for a username, then one month of games. Variant games (960, etc.) are skipped.
 - Analyses every position at a fixed depth (default 18, set in Settings). Each "engine" is one single-threaded Stockfish worker, and positions are spread across them, so one game uses all of them.
 - Labels moves by eval loss against the engine's best move: inaccuracy 50 cp, mistake 100 cp, blunder 300 cp. A move that matches the engine's top choice is `best`. Moves up to the deepest position found in the ECO table are `book` unless they lose 300 cp or more.

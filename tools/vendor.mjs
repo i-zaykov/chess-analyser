@@ -14,10 +14,13 @@ const FILES = {
   'qrcode.js': 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/+esm',
   'stockfish.js': `${SF}.js`,
   'stockfish.wasm': `${SF}.wasm`,
+  // The design system's fonts (OFL), Latin subset with the weight axis.
+  'fonts/figtree.woff2': 'https://cdn.jsdelivr.net/npm/@fontsource-variable/figtree@5.3.0/files/figtree-latin-wght-normal.woff2',
+  'fonts/bricolage-grotesque.woff2': 'https://cdn.jsdelivr.net/npm/@fontsource-variable/bricolage-grotesque@5.3.0/files/bricolage-grotesque-latin-wght-normal.woff2',
 };
 
 const dir = new URL('../vendor/', import.meta.url);
-mkdirSync(dir, { recursive: true });
+mkdirSync(new URL('fonts/', dir), { recursive: true });
 for (const [name, url] of Object.entries(FILES)) {
   const r = await fetch(url);
   if (!r.ok) throw new Error(`${url}: ${r.status}`);

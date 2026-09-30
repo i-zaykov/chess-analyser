@@ -48,6 +48,8 @@ const PAGE: &[(&str, &[u8])] = &[
     ("vendor/qrcode.js", include_bytes!("../../vendor/qrcode.js")),
     ("vendor/stockfish.js", include_bytes!("../../vendor/stockfish.js")),
     ("vendor/stockfish.wasm", include_bytes!("../../vendor/stockfish.wasm")),
+    ("vendor/fonts/figtree.woff2", include_bytes!("../../vendor/fonts/figtree.woff2")),
+    ("vendor/fonts/bricolage-grotesque.woff2", include_bytes!("../../vendor/fonts/bricolage-grotesque.woff2")),
 ];
 const DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../data");
 // Fixed port: the browser keys the analysis cache by origin, so it must stay http://localhost:8765.
@@ -460,6 +462,7 @@ fn content_type(path: &str) -> &'static str {
         Some("css") => "text/css",
         Some("wasm") => "application/wasm",
         Some("png") => "image/png",
+        Some("woff2") => "font/woff2",
         Some("ndjson") => "application/x-ndjson",
         _ => "application/octet-stream",
     }
