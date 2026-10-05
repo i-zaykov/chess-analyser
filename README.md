@@ -3,6 +3,8 @@
 A single page that loads a month of Chess.com games, runs Stockfish in the browser and labels every move.
 The page talks only to the Chess.com API. Its libraries and Stockfish ship inside the app, and Chess.com answers are kept in the browser, so it also works offline for games already loaded.
 
+Try it at **https://i-zaykov.github.io/chess-analyser/**: enter a Chess.com username and it loads that player's latest month. Nothing to install.
+
 ## Run it
 
 The app is a small macOS launcher. Building it needs Rust (`cargo`) and the Xcode command line tools.
@@ -19,7 +21,7 @@ Keep using `localhost`, not `127.0.0.1`. The browser caches analyses per address
 
 The page and the opening table are compiled into the app. After changing `index.html` or `eco.json`, run `app/build.sh` again.
 
-On another system, serve the folder with any static server, for example `python3 -m http.server 8766`, and open http://localhost:8766. Analysis works the same; syncing puzzle progress with a phone needs the Mac app.
+Without the Mac app, use the page above or serve the folder with any static server, for example `python3 -m http.server 8766`, and open http://localhost:8766. Analysis works the same; syncing puzzle progress with a phone needs the Mac app.
 
 ## What it does
 
