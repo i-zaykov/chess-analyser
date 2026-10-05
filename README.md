@@ -5,15 +5,21 @@ The page talks only to the Chess.com API. Its libraries and Stockfish ship insid
 
 ## Run it
 
-Open **Chess Analyser** from `~/Applications` (Spotlight and Raycast find it). It starts a small server on http://localhost:8765 and opens that page in your default browser.
+The app is a small macOS launcher. Building it needs Rust (`cargo`) and the Xcode command line tools.
+
+```bash
+git clone https://github.com/i-zaykov/chess-analyser.git
+cd chess-analyser
+app/build.sh
+```
+
+That installs **Chess Analyser** to `~/Applications` (Spotlight and Raycast find it). Opening it starts a small server on http://localhost:8765 and opens that page in your default browser.
 It has no Dock icon. It quits about 3 minutes after you close the last tab, and opening it again while it runs opens another tab.
 Keep using `localhost`, not `127.0.0.1`. The browser caches analyses per address.
 
-The page and the opening table are compiled into the app. After changing `index.html` or `eco.json`, rebuild and reinstall:
+The page and the opening table are compiled into the app. After changing `index.html` or `eco.json`, run `app/build.sh` again.
 
-```bash
-/Users/ivan.zaykov/lenus/personal/chess-analyser/app/build.sh
-```
+On another system, serve the folder with any static server, for example `python3 -m http.server 8766`, and open http://localhost:8766. Analysis works the same; syncing puzzle progress with a phone needs the Mac app.
 
 ## What it does
 
@@ -61,7 +67,7 @@ The page and the opening table are compiled into the app. After changing `index.
 ## Batch mode
 
 ```bash
-cd chess-analyser/tools && npm install
+cd tools && npm install
 node batch.mjs --user YOUR_NAME --last 2 --depth 18
 ```
 
