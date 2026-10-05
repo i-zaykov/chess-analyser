@@ -1272,7 +1272,22 @@ async function refreshLatest(force = false) {
     updateMonthControls();
     gamesChanged();
     toast(added.length === 1 ? `New game: ${added[0].opp.username} (${{ W: 'won', D: 'drawn', L: 'lost' }[added[0].result]})` : `${added.length} new games`);
+    return added.length;
   } catch { /* offline or rate limited: the next refresh tries again */ }
+}
+
+// On a phone, coming back to the app is opening it: it shows your latest game, as a fresh start does,
+// whatever game or month was open. Only after a new game came in or a few minutes away, so a quick
+// switch to another app keeps your place.
+const AWAY = 5 * 60000;
+let hiddenAt = 0;
+async function openLatest() {
+  const away = Date.now() - hiddenAt, was = S.cur, token = S.token;
+  const added = await refreshLatest();
+  if ((!added && away < AWAY) || S.cur !== was || token !== S.token || S.view !== 'games') return;
+  if (S.ym !== S.archives[0]) return start(S.user, S.archives[0]);
+  const g = S.games.find((x) => !x.broken);
+  if (g && g !== S.cur) select(g);
 }
 
 async function loadMonth(ym, gameId, token) {
@@ -1355,9 +1370,10 @@ function select(g, ply = 0) {
 
 // On a phone the Games tab shows either the list or the open game (see the phone styles); the desktop
 // shows both, so there this only records which one a phone would show.
+const phone = () => matchMedia('(max-width: 760px)').matches;
 function setScreen(screen) {
   document.body.dataset.screen = screen;
-  if (screen === 'game' && matchMedia('(max-width: 760px)').matches) scrollTo(0, 0);
+  if (screen === 'game' && phone()) scrollTo(0, 0);
 }
 
 // Jumps within the game, leaving any engine line being previewed.
@@ -3140,10 +3156,11 @@ channel.onmessage = async ({ data }) => {
 
 // Coming back to the app picks up what the other device practised meanwhile.
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden || !S.user) return;
+  if (document.hidden) { hiddenAt = Date.now(); return; }
+  if (!S.user) return;
   sendOutbox();
   mergeAttempts(accountUser(), true);
-  refreshLatest();
+  if (phone()) openLatest(); else refreshLatest();
 });
 setInterval(() => { if (!document.hidden) refreshLatest(); }, 3 * 60000);
 
@@ -3167,7 +3184,10 @@ const h = readHash();
 const bootUser = h.user || settings.user;
 if (bootUser) {
   $('#user').value = bootUser;
-  start(bootUser, h.user ? h.ym : null, h.id); // no link: the newest month, so the latest game
+  // No link: the newest month, so the latest game. A phone ignores the link's game too: the address it
+  // reopens (Safari's restored tab, the home-screen icon) names whatever game was open back then.
+  if (phone()) start(bootUser);
+  else start(bootUser, h.user ? h.ym : null, h.id);
 }
 </script>
 </body>
