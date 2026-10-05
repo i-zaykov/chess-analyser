@@ -151,6 +151,13 @@ li.game.broken { opacity: .5; cursor: default; }
 .gstat { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .gstat b { font-weight: 600; }
 .gstat .errs { display: flex; gap: 4px; justify-content: flex-end; font-size: 11px; font-weight: 600; margin-top: 2px; }
+.gstat .errs[data-peek] { cursor: zoom-in; border-radius: 4px; padding: 1px 3px; margin-right: -3px; }
+.gstat .errs[data-peek]:hover { background: var(--c-surface); text-decoration: underline; }
+#gameList li.peek { list-style: none; margin: 0 6px 6px 40px; padding: 4px 0; border-left: 2px solid var(--c-line); }
+:is(li.peek, .rv-peek) button { display: grid; grid-template-columns: 52px 1fr auto; gap: 8px; width: 100%; padding: 4px 10px; border: 0; background: none; font: inherit; font-size: 12px; text-align: left; cursor: pointer; border-radius: 6px; color: var(--c-ink); }
+:is(li.peek, .rv-peek) button:is(:hover, .cur) { background: var(--c-surface-alt); }
+:is(li.peek, .rv-peek) .no { color: var(--c-dim); font-variant-numeric: tabular-nums; }
+:is(li.peek, .rv-peek) .best { color: var(--c-sub); white-space: nowrap; }
 .pc { flex: none; display: inline-block; width: 9px; height: 9px; border-radius: 999px; border: 1.5px solid var(--c-ink); }
 .pc-w { background: #fff; } .pc-b { background: var(--c-ink); }
 
@@ -256,6 +263,9 @@ li.game.broken { opacity: .5; cursor: default; }
 .rv-grid .v-best { color: var(--best); } .rv-grid .v-excellent { color: var(--excellent); } .rv-grid .v-good { color: var(--good); } .rv-grid .v-book { color: var(--book); }
 .rv-grid .v-inaccuracy { color: var(--inaccuracy); } .rv-grid .v-mistake { color: var(--mistake); } .rv-grid .v-blunder { color: var(--blunder); }
 .rv-grid [class*="v-"] { font-weight: 700; }
+.rv-grid button.v { border: 0; background: none; font: inherit; font-weight: 700; padding: 2px 0; border-radius: 6px; cursor: pointer; }
+.rv-grid button.v:hover, .rv-grid button.v.open { background: var(--c-surface-alt); text-decoration: underline; }
+.rv-grid .rv-peek { grid-column: 1 / -1; margin: -3px 0 0; padding: 4px 0; border-left: 2px solid var(--c-line); }
 .review .rv-start { width: 100%; height: 40px; font-size: 15px; font-weight: 600; background: var(--c-accent-deep); border-color: var(--c-accent-deep); color: #fff; }
 .review .rv-start:hover:not(:disabled) { background: var(--c-accent-deep); opacity: .9; }
 #moves { display: grid; grid-template-columns: 32px 1fr 1fr; row-gap: 2px; align-content: start; padding: 8px 8px 12px; max-height: 70vh; overflow: auto; font-variant-numeric: tabular-nums; }
@@ -1098,7 +1108,7 @@ function rate() {
 // ---------- state ----------
 const S = {
   user: '', ym: '', archives: [], games: [], byUrl: new Map(), cur: null, ply: 0, flipped: false, view: 'games',
-  filters: { result: 'all', color: 'all', tc: 'all', blunders: false }, onlyErrors: false, hint: false, line: null, token: 0, allLoaded: false, listSize: 10,
+  filters: { result: 'all', color: 'all', tc: 'all', blunders: false }, onlyErrors: false, peek: null, rvPeek: null, hint: false, line: null, token: 0, allLoaded: false, listSize: 10,
 };
 
 // ---------- chess.com ----------
@@ -1329,6 +1339,7 @@ function filtered() {
 function select(g, ply = 0) {
   if (!g || g.broken) return;
   stopLine(false);
+  if (g !== S.cur) S.rvPeek = null;
   S.cur = g; S.ply = ply; S.flipped = false;
   analyse(g);
   setScreen('game');
@@ -1572,7 +1583,7 @@ function phaseLabel(g, color, phase) {
 function renderReview() {
   const el = $('#review'), g = S.cur;
   if (el.hidden || !g) return;
-  const st = review(g)?.stats;
+  const r = review(g), st = r?.stats;
   if (!st) {
     el.innerHTML = `<div class="rv-coach"><span class="rv-avatar">♞︎</span><p class="rv-bubble">${g.work ? `Analysing the game: ${g.work.done} of ${g.work.ev.length} positions.` : 'Waiting for the engine.'}</p></div>
       <button class="primary rv-start" data-rv="start">Start review</button>`;
@@ -1584,6 +1595,9 @@ function renderReview() {
   const box = (c, x) => `<span class="v"><span class="rv-box ${c}">${x}</span></span>`;
   const phase = (c, p) => { const l = phaseLabel(g, c, p); return `<span class="ico">${l ? clsBadge(l) : '<span class="dash">–</span>'}</span>`; };
   const liked = both((c) => playedLike(g, c));
+  // A count opens the list of those moves under its row; clicking it again closes the list.
+  const countCell = (k, c, n) => !n ? `<span class="v v-${k}">0</span>`
+    : `<button class="v v-${k}${S.rvPeek?.k === k && S.rvPeek.c === c ? ' open' : ''}" data-count="${k}" data-color="${c}" title="Show ${g.sides[c].username}'s ${NAME[k].toLowerCase()} moves">${n}</button>`;
   el.innerHTML = `
     <div class="rv-coach"><span class="rv-avatar">♞︎</span><p class="rv-bubble">${verdict(g)}</p></div>
     <svg class="evgraph rv-graph" viewBox="0 0 300 64" preserveAspectRatio="none">${graphSvg(g, 300, 64)}</svg>
@@ -1592,7 +1606,8 @@ function renderReview() {
       ${row('<span class="k">Rating</span>', both((c) => `<span class="v">${g.sides[c].rating}${ratingChangeHtml(g, c)}</span>`))}
       ${row('<span class="k">Accuracy</span>', both((c) => box(c, st[c].accuracy.toFixed(1))))}
       <span class="hr"></span>
-      ${REVIEW_ROWS.map(([k, name]) => row(`<span>${name}</span>`, both((c) => `<span class="v v-${k}">${st[c][k]}</span>`), clsBadge(k))).join('')}
+      ${REVIEW_ROWS.map(([k, name]) => row(`<span>${name}</span>`, both((c) => countCell(k, c, st[c][k])), clsBadge(k))
+        + (S.rvPeek?.k === k ? `<div class="rv-peek">${moveRows(g, r.moves.flatMap((j, i) => (j?.label === k && g.moves[i].color === S.rvPeek.c ? [{ j, i }] : [])))}</div>` : '')).join('')}
       <span class="hr"></span>
       ${liked.some((x) => x != null) ? row('<span class="k" title="A rough estimate from accuracy against what is typical at each rating, fitted on your games">Played like</span>', both((c, i) => box(c, liked[i] ?? '–'))) : ''}
       ${PHASES.map(([p, name]) => `<span>${name}</span>${phase('w', p)}<span></span>${phase('b', p)}`).join('')}
@@ -1709,7 +1724,10 @@ const listItem = (g) => document.querySelector(`#gameList li[data-url="${CSS.esc
 function gameStatus(g) {
   if (g.broken) return '<span class="muted">PGN error</span>';
   const st = review(g)?.stats;
-  if (st) return `<b>${fmtAcc(st.me.accuracy)}</b><span class="errs">${errBadges(st.me)}</span>`;
+  if (st) {
+    const errs = errBadges(st.me);
+    return `<b>${fmtAcc(st.me.accuracy)}</b><span class="errs"${errs ? ' data-peek title="Show your errors without opening the game"' : ''}>${errs}</span>`;
+  }
   const w = g.work;
   if (w) {
     const started = sched.focus === g || w.done > (g.terminal != null ? 1 : 0);
@@ -1726,7 +1744,29 @@ function gameItem(g) {
       <div class="gmeta" title="${g.opening ? esc(g.opening.name) : ''}">${fmtDate(g.end)} · ${fmtTc(g.timeControl)} ${g.timeClass}</div>
     </div>
     <div class="gstat">${gameStatus(g)}</div>
-  </li>`;
+  </li>${S.peek === g.url ? peekItem(g) : ''}`;
+}
+
+// One button per move: its number, the move with its label's colour and symbol, and the engine's best move
+// when that differs. Each carries data-ply, the position after the move.
+function moveRows(g, picks) {
+  const sym = { blunder: '??', mistake: '?', inaccuracy: '?!' };
+  return picks.map(({ j, i }) => {
+    const m = g.moves[i], best = j.label !== 'best' && j.label !== 'book' && playLine(g.fens[i], j.line).moves[0]?.san;
+    return `<button data-ply="${i + 1}"${i + 1 === S.ply && g === S.cur ? ' class="cur"' : ''} title="${NAME[j.label]} · ${fmtEval(j.before)} to ${fmtEval(j.after)}">
+      <span class="no">${m.no}${m.color === 'w' ? '.' : '…'}</span><span><b class="lbl-${j.label}">${m.san}${sym[j.label] || ''}</b></span>
+      <span class="best">${best ? `best ${best}` : ''}</span></button>`;
+  }).join('');
+}
+
+// Your blunders, mistakes and inaccuracies in a game, listed under its row; each opens the game at that move.
+function peekItem(g) {
+  const r = review(g);
+  if (!r?.stats) return '';
+  const rank = { blunder: 0, mistake: 1, inaccuracy: 2 };
+  const picks = r.moves.flatMap((j, i) => (j?.err && g.moves[i].mine ? [{ j, i }] : []))
+    .sort((a, b) => rank[a.j.label] - rank[b.j.label] || a.i - b.i);
+  return `<li class="peek" data-url="${esc(g.url)}">${moveRows(g, picks)}</li>`;
 }
 
 function renderList() {
@@ -2947,8 +2987,11 @@ $('#gameList').addEventListener('click', (e) => {
     renderList(); queueAuto(); updateMonthControls();
     return;
   }
+  const peek = e.target.closest('li.peek [data-ply]');
+  if (peek) { const g = S.byUrl.get(peek.closest('li.peek').dataset.url); select(g, +peek.dataset.ply); return; }
   const li = e.target.closest('li.game');
   if (!li) return;
+  if (e.target.closest('[data-peek]')) { S.peek = S.peek === li.dataset.url ? null : li.dataset.url; renderList(); return; }
   select(S.byUrl.get(li.dataset.url));
 });
 $('#backToList').addEventListener('click', () => { setScreen('list'); listItem(S.cur)?.scrollIntoView({ block: 'center' }); });
@@ -3017,7 +3060,21 @@ $('#coach').addEventListener('click', (e) => {
 });
 $('#onlyErrors').addEventListener('change', (e) => { S.onlyErrors = e.target.checked; renderGame(); });
 $('#paneTabs').addEventListener('click', (e) => { const b = e.target.closest('[data-pane]'); if (b) setPane(b.dataset.pane); });
-$('#review').addEventListener('click', (e) => { if (e.target.closest('[data-rv=start]')) startReview(); });
+$('#review').addEventListener('click', (e) => {
+  if (e.target.closest('[data-rv=start]')) return startReview();
+  const count = e.target.closest('[data-count]');
+  if (count) {
+    const { count: k, color: c } = count.dataset;
+    S.rvPeek = S.rvPeek?.k === k && S.rvPeek.c === c ? null : { k, c };
+    return renderReview();
+  }
+  const mv = e.target.closest('.rv-peek [data-ply]');
+  if (mv) {
+    go(+mv.dataset.ply);
+    document.querySelectorAll('.rv-peek .cur').forEach((b) => b.classList.remove('cur'));
+    mv.classList.add('cur');
+  }
+});
 $('#explorer').addEventListener('click', (e) => {
   const row = e.target.closest('[data-uci]'), act = e.target.closest('[data-ex]')?.dataset.ex;
   if (row) boardMove(row.dataset.uci.slice(0, 2), row.dataset.uci.slice(2, 4), row.dataset.uci[4]);
