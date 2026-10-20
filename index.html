@@ -250,6 +250,7 @@ li.game.broken { opacity: .5; cursor: default; }
 .rv-bubble { margin: 0; padding: 10px 12px; border-radius: 4px 12px 12px 12px; background: var(--c-surface-alt); line-height: 1.5; text-wrap: pretty; }
 .rv-graph { height: 64px; border-radius: 6px; overflow: hidden; }
 .review > .rv-graph { display: none; } /* the board column has the big graph; phones show this one */
+.rv-pop { display: none; }
 .rv-grid { display: grid; grid-template-columns: minmax(0, 1fr) 64px 24px 64px; row-gap: 9px; align-items: center; font-variant-numeric: tabular-nums; }
 .rv-grid > .k { color: var(--c-sub); }
 .rv-grid .who { text-align: center; font-size: 11px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -341,6 +342,19 @@ tr.click { cursor: pointer; } tr.click:hover td { background: var(--c-surface-al
   .moves-col { position: sticky; top: 16px; max-height: calc(100dvh - 153px); min-height: 360px; }
   .moves-col > .coach { flex: none; max-height: 45dvh; overflow: auto; margin: 0; border: 0; border-top: 1px solid var(--c-line); border-radius: 0; box-shadow: none; }
   .moves-col > :is(#moves, #explorer, #review) { flex: 1 1 auto; min-height: 0; max-height: none; overflow: auto; }
+  /* A game opens on its review summary in a popup over the page, like Chess.com's Game Review. It is sized to
+     the window, not the board, so the whole summary and Start review show without scrolling. Start review,
+     Esc, a click beside it or stepping through the game closes it (see closeReview); the Review tab brings
+     it back. */
+  body[data-pane="review"] .rv-pop { position: fixed; inset: 0; z-index: 45; display: grid; place-items: center; padding: 24px; background: rgb(31 29 26 / .4); }
+  .rv-pop > .review { width: min(420px, 100%); max-height: 100%; overflow: auto; background: #fff; border-radius: 12px; box-shadow: var(--shadow-lg); }
+  @media (max-height: 800px) {
+    body[data-pane="review"] .rv-pop { padding: 12px; }
+    .rv-pop > .review { gap: 10px; padding: 12px 16px; }
+    .rv-pop .rv-grid { row-gap: 2px; }
+    .rv-pop .rv-box { padding: 2px 10px; }
+  }
+  .review .rv-start { flex: none; position: sticky; bottom: 0; box-shadow: 0 0 0 16px #fff; }
 }
 
 @media (pointer: coarse) and (max-width: 760px) {
@@ -483,6 +497,7 @@ tr.click { cursor: pointer; } tr.click:hover td { background: var(--c-surface-al
       <div class="board-wrap">
         <div id="evalBar" title=""><i></i><b id="evalText"></b></div>
         <div id="board" class="cg-wrap"></div>
+        <div class="rv-pop" id="rvPop"></div>
       </div>
       <div class="player" id="playerBottom"></div>
       <div class="controls">
@@ -1423,11 +1438,25 @@ function placeCoach() {
 matchMedia('(max-width: 760px)').addEventListener('change', placeCoach);
 placeCoach();
 
+// The review summary is a screen of its own on a phone (see the phone styles), and a popup over the page on
+// a wider screen.
+function placeReview() {
+  if (phone()) $('#explorer').after($('#review'));
+  else $('#rvPop').append($('#review'));
+}
+matchMedia('(max-width: 760px)').addEventListener('change', () => { placeReview(); setPane(document.body.dataset.pane || 'moves'); });
+placeReview();
+const reviewPopup = () => document.body.dataset.pane === 'review' && !phone();
+function closeReview() {
+  if (reviewPopup()) setPane(settings.pane === 'explorer' ? 'explorer' : 'moves');
+}
+
 // Jumps within the game, leaving any engine line being previewed.
 function go(ply) {
   const g = S.cur;
   if (!g) return;
   stopLine(false);
+  closeReview();
   S.ply = Math.max(0, Math.min(g.fens.length - 1, ply));
   renderPosition();
 }
@@ -1626,12 +1655,15 @@ function renderExplorer() {
     <p>Click a move to play it on the board.</p>`;
 }
 
-// The right column shows the game's review summary when a game opens, then the moves or the explorer
-// (whichever you used last) once you start.
+// A game opens on its review summary, then shows the moves or the explorer (whichever you used last) once
+// you start. Wider than a phone the summary is a popup over the page, and the column keeps the moves or
+// the explorer under it.
 function setPane(pane) {
   if (pane !== 'review') { settings.pane = pane; saveSettings(); }
   document.querySelectorAll('#paneTabs button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.pane === pane)));
-  for (const p of ['review', 'moves', 'explorer']) $('#' + p).hidden = pane !== p;
+  const col = pane === 'review' && !phone() ? (settings.pane === 'explorer' ? 'explorer' : 'moves') : pane;
+  for (const p of ['moves', 'explorer']) $('#' + p).hidden = col !== p;
+  $('#review').hidden = pane !== 'review';
   document.body.dataset.pane = pane;
   renderExplorer();
   renderReview();
@@ -3244,6 +3276,7 @@ $('#coach').addEventListener('click', (e) => {
 });
 $('#onlyErrors').addEventListener('change', (e) => { S.onlyErrors = e.target.checked; renderGame(); });
 $('#paneTabs').addEventListener('click', (e) => { const b = e.target.closest('[data-pane]'); if (b) setPane(b.dataset.pane); });
+$('#rvPop').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeReview(); });
 $('#review').addEventListener('click', (e) => {
   if (e.target.closest('[data-rv=start]')) return startReview();
   const count = e.target.closest('[data-count]');
@@ -3280,7 +3313,7 @@ document.addEventListener('keydown', (e) => {
   if (e.target instanceof Element && e.target.closest('input, select, textarea')) return;
   if (e.metaKey || e.ctrlKey || e.altKey || !S.cur || S.view !== 'games') return;
   const k = {
-    ArrowLeft: () => step(-1), ArrowRight: () => step(1), Escape: () => stopLine(), Home: () => go(0), End: () => go(Infinity),
+    ArrowLeft: () => step(-1), ArrowRight: () => step(1), Escape: () => (reviewPopup() ? closeReview() : stopLine()), Home: () => go(0), End: () => go(Infinity),
     ArrowUp: () => jumpMoment(-1), ArrowDown: () => jumpMoment(1),
     f: () => $('#bFlip').click(), h: () => { S.hint = !S.hint; renderPosition(); },
     b: () => (S.line ? stopLine() : showBest()), e: () => (S.line ? stopLine() : explainMove()),
