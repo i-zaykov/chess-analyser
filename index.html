@@ -380,6 +380,11 @@ tr.click { cursor: pointer; } tr.click:hover td { background: var(--c-surface-al
   #backToList { min-height: 44px; }
   .coach .mv-btns button, .coach .line-nav button { min-height: 44px; font-size: 14px; }
   .coach :is(.mv-btns, .line-nav) > button { flex: 1 1 auto; }
+  /* Under the board there is room for one row before the tab bar, so the move card leads with Explain and
+     Best move and the verdict and reasons follow. */
+  .board-col { gap: 6px; }
+  .coach { display: flex; flex-direction: column; }
+  .coach .acts { order: -1; margin: 0 0 12px; }
   .pane-tabs { gap: 0; padding: 0; }
   .pane-tabs button { flex: 1; height: 44px; }
   #moves { font-size: 15px; }
@@ -2088,7 +2093,7 @@ function coachHtml(g) {
   return `${k >= 0 ? `<p class="moment">Key moment ${k + 1} of ${moments.length}: here's what needed your attention.</p>` : ''}
     <div class="coach-head">${clsBadge(j.label)}<span class="ct">${moveName(m)}</span><span class="cl" style="color:var(--${j.label})">${NAME[j.label]}</span><span class="cev">${fmtEval(j.after)}</span></div>
     ${out.map((p) => `<p>${p}</p>`).join('')}
-    ${btns.length ? `<div class="mv-btns">${btns.join('')}</div>` : ''}`;
+    ${btns.length ? `<div class="mv-btns acts">${btns.join('')}</div>` : ''}`;
 }
 
 function lineCoachHtml(v) {
