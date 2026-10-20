@@ -158,6 +158,7 @@ li.game.broken { opacity: .5; cursor: default; }
 :is(li.peek, .rv-peek) button:is(:hover, .cur) { background: var(--c-surface-alt); }
 :is(li.peek, .rv-peek) .no { color: var(--c-dim); font-variant-numeric: tabular-nums; }
 :is(li.peek, .rv-peek) .best { color: var(--c-sub); white-space: nowrap; }
+:is(li.peek, .rv-peek) .best[data-best]:hover { color: var(--c-success); text-decoration: underline; }
 .pc { flex: none; display: inline-block; width: 9px; height: 9px; border-radius: 999px; border: 1.5px solid var(--c-ink); }
 .pc-w { background: #fff; } .pc-b { background: var(--c-ink); }
 
@@ -331,6 +332,17 @@ tr.click { cursor: pointer; } tr.click:hover td { background: var(--c-surface-al
 .pz-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .pz-stats { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--c-sub); font-size: 11px; border-top: 1px solid var(--c-line); padding-top: 10px; }
 
+/* Wider than a phone: the board leaves room under it for the controls, and the column next to it fits the
+   window and starts with the move card (see placeCoach), so the board, the controls, the move's verdict
+   and Best move are in view together without scrolling. 233px is the header, the bar and the strips
+   around the board; 153px is the header, the bar and the page's padding. */
+@media (min-width: 761px) {
+  .board-col { max-width: min(680px, max(360px, calc(100dvh - 233px))); }
+  .moves-col { position: sticky; top: 16px; max-height: calc(100dvh - 153px); min-height: 360px; }
+  .moves-col > .coach { flex: none; max-height: 45dvh; overflow: auto; margin: 0; border: 0; border-top: 1px solid var(--c-line); border-radius: 0; box-shadow: none; }
+  .moves-col > :is(#moves, #explorer, #review) { flex: 1 1 auto; min-height: 0; max-height: none; overflow: auto; }
+}
+
 @media (pointer: coarse) and (max-width: 760px) {
   button, .btn, select, input:not([type=checkbox]) { min-height: 40px; }
   input, select { font-size: 16px; } /* smaller text makes iOS zoom in on focus */
@@ -359,6 +371,21 @@ tr.click { cursor: pointer; } tr.click:hover td { background: var(--c-surface-al
   .games-view > * { grid-column: 1; grid-row: auto; }
   .coach, .graph-wrap { margin-left: 0; }
   .player, .controls { padding-left: 0; }
+  /* Thumb-sized targets, 44px and up: the step buttons share the row, the move card's buttons fill theirs. */
+  .controls { gap: 6px; }
+  .navgroup { flex: 1; }
+  .navgroup button { flex: 1; width: auto; height: 46px; }
+  #bFlip { width: 46px; height: 46px; }
+  #bMoment { height: 46px; }
+  #backToList { min-height: 44px; }
+  .coach .mv-btns button, .coach .line-nav button { min-height: 44px; font-size: 14px; }
+  .coach :is(.mv-btns, .line-nav) > button { flex: 1 1 auto; }
+  .pane-tabs { gap: 0; padding: 0; }
+  .pane-tabs button { flex: 1; height: 44px; }
+  #moves { font-size: 15px; }
+  #moves :is(.mv, .no) { padding-block: 12px; }
+  .review .rv-start { height: 48px; }
+  .pz-actions button { flex: 1 1 auto; min-height: 44px; }
   /* The strips keep name, rating, change and clock; accuracy and errors are in the review. */
   .player { flex-wrap: nowrap; } .player .pname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .player :is(.pacc, .tag-chip:not(.clock)) { display: none; } .player .clock { margin-left: auto; }
@@ -514,9 +541,12 @@ import { MATE, readGame, terminalScore, Uci } from './core.mjs';
 const SF_JS = new URL('vendor/stockfish.js', location.href).href;
 const SF_WASM = new URL('vendor/stockfish.wasm', location.href).href;
 const CLAMP = 1000;   // evals are clamped to ±10 pawns before computing loss and accuracy
-const TH = { inaccuracy: 50, mistake: 100, blunder: 300 };
+// Labels go by the win-chance points a move throws away, with Chess.com's cutoffs (5 / 10 / 20 expected
+// points), so a slip in a game already won or lost costs little and the same slip at equality costs a lot.
+const TH = { inaccuracy: 5, mistake: 10, blunder: 20 };
 const MIN_SWING = 8;  // win-chance points a move must throw away to become a puzzle or a key moment
-const TH_EXCELLENT = 20;
+const TH_EXCELLENT = 2;
+const SLIP = 50;      // centipawns: a puzzle answer or opening move within this of the engine's move is fine
 const ERRORS = ['inaccuracy', 'mistake', 'blunder'];
 const GLYPH = { best: '★', excellent: '✓', good: '✓', book: 'book', inaccuracy: '?!', mistake: '?', blunder: '??' };
 const LABEL = { best: 'the best move', excellent: 'excellent', good: 'good', book: 'a book move', inaccuracy: 'an inaccuracy', mistake: 'a mistake', blunder: 'a blunder' };
@@ -738,25 +768,27 @@ function review(g) {
   return r;
 }
 
-// The label of a move that threw away `loss` centipawns; `top` means it was the engine's own choice.
-function labelFor(loss, top) {
+// The label of a move that threw away `drop` win-chance points; `top` means it was the engine's own choice.
+function labelFor(drop, top) {
   if (top) return 'best';
-  if (loss >= TH.blunder) return 'blunder';
-  if (loss >= TH.mistake) return 'mistake';
-  if (loss >= TH.inaccuracy) return 'inaccuracy';
-  return loss < TH_EXCELLENT ? 'excellent' : 'good';
+  if (drop >= TH.blunder) return 'blunder';
+  if (drop >= TH.mistake) return 'mistake';
+  if (drop >= TH.inaccuracy) return 'inaccuracy';
+  return drop < TH_EXCELLENT ? 'excellent' : 'good';
 }
+// Win-chance points lost going from `before` to `after`, both centipawns from the mover's point of view.
+const dropOf = (before, after) => Math.max(0, winPct(clamp(before)) - winPct(clamp(after)));
 
 // `before`/`after` are white-POV scores around the move; `line` is the engine's line before it, `reply` after it.
 function judge(g, m, i, a, b) {
   if (!a || !b) return null;
   const sign = m.color === 'w' ? 1 : -1;
   const before = sign * clamp(a[0]), after = sign * clamp(b[0]);
-  const loss = Math.max(0, before - after);
+  const loss = Math.max(0, before - after), drop = dropOf(before, after);
   const best = a[1].split(' ')[0];
-  const label = i + 1 <= g.bookPly && loss < TH.blunder ? 'book' : labelFor(loss, best && m.uci === best);
+  const label = i + 1 <= g.bookPly && drop < TH.blunder ? 'book' : labelFor(drop, best && m.uci === best);
   return {
-    label, loss, best, err: ERRORS.includes(label), acc: moveAcc(winPct(before) - winPct(after)),
+    label, loss, drop, best, err: ERRORS.includes(label), acc: moveAcc(drop),
     before: a[0], after: b[0], line: a[1], reply: b[1],
   };
 }
@@ -1376,6 +1408,16 @@ function setScreen(screen) {
   if (screen === 'game' && phone()) scrollTo(0, 0);
 }
 
+// The move card (the verdict, why, Explain and Best move, or the line being shown) sits under the board on
+// a phone, and at the top of the column next to the board on a wider screen, where under the board would be
+// below the fold.
+function placeCoach() {
+  if (phone()) $('.board-col > .controls').after($('#coach'));
+  else $('#paneTabs').before($('#coach'));
+}
+matchMedia('(max-width: 760px)').addEventListener('change', placeCoach);
+placeCoach();
+
 // Jumps within the game, leaving any engine line being previewed.
 function go(ply) {
   const g = S.cur;
@@ -1416,14 +1458,30 @@ function jumpMoment(dir) {
 // move branches off into your own line. The engine's line keeps its score, so its positions are
 // scored already and stepping is instant; where it ends, the engine is asked again.
 function tryLine(kind) {
-  const g = S.cur, from = kind === 'better' ? S.ply - 1 : S.ply, [score, pv] = evs(g)[from];
-  const line = playLine(g.fens[from], pv);
+  const g = S.cur, from = kind === 'better' ? S.ply - 1 : S.ply, j = review(g)?.moves[S.ply - 1];
+  if (!evs(g)?.[from] || !j) return;
+  const [score, pv] = evs(g)[from], line = playLine(g.fens[from], pv);
   if (!line.moves.length) return;
+  const why = moveWhy(g, S.ply - 1, j), played = `<b>${moveName(g.moves[S.ply - 1])}</b>`;
   line.fens.slice(1, -1).forEach((fen, k) => {
     if (!explored.has(fen)) explored.set(fen, [score, line.moves.slice(k + 1).map((m) => m.lan).join(' ')]);
   });
-  S.line = { title: `${kind === 'better' ? 'Best move' : 'Best reply'}: ${line.moves[0].san}`, base: from, moves: [...line.moves], fens: [...line.fens], i: 1 };
+  // The other line, one click away: the best move from the punishment, the punishment from the best move.
+  const other = kind === 'better' ? j.err && playLine(g.fens[S.ply], j.reply).moves[0] : playLine(g.fens[S.ply - 1], j.line).moves[0];
+  S.line = {
+    kind, title: kind === 'better' ? `Best move: ${line.moves[0].san}` : j.err ? `Why ${moveName(g.moves[S.ply - 1])} is ${LABEL[j.label]}` : `Best reply: ${line.moves[0].san}`,
+    why: kind === 'better' ? [why.best, why.allows && `${played}, played in the game, ${why.allows}.`].filter(Boolean).join(' ') : why.allows && `${played} ${why.allows}.`,
+    marks: kind === 'better' ? why.good : why.bad,
+    other: other && `<button data-line="${kind === 'better' ? 'reply' : 'better'}">${kind === 'better' ? `Why it's a problem: ${other.san}` : `Show best instead: ${other.san}`}</button>`,
+    base: from, moves: [...line.moves], fens: [...line.fens], i: 1,
+  };
   renderPosition();
+}
+
+// `b`, Show best and "best Nf6" in the error lists: the engine's move instead of the one just played.
+function showBest() {
+  const j = S.cur && review(S.cur)?.moves[S.ply - 1];
+  if (j && j.label !== 'best' && j.label !== 'book') tryLine('better');
 }
 
 function stopLine(render = true) {
@@ -1529,10 +1587,10 @@ function explorerStats(fen) {
   for (const { g, ply } of tree.get(posKey(fen)) || []) {
     const m = g.moves[ply], ev = evs(g), j = ev && judge(g, m, ply, ev[ply], ev[ply + 1]);
     const group = groups[m.mine ? 'me' : 'opp'];
-    if (!group.has(m.uci)) group.set(m.uci, { uci: m.uci, san: m.san, after: g.fens[ply + 1], n: 0, W: 0, D: 0, L: 0, loss: 0, judged: 0 });
+    if (!group.has(m.uci)) group.set(m.uci, { uci: m.uci, san: m.san, after: g.fens[ply + 1], n: 0, W: 0, D: 0, L: 0, loss: 0, drop: 0, judged: 0 });
     const x = group.get(m.uci);
     x.n++; x[g.result]++;
-    if (j) { x.loss += Math.min(j.loss, CLAMP); x.judged++; }
+    if (j) { x.loss += Math.min(j.loss, CLAMP); x.drop += j.drop; x.judged++; }
   }
   const sorted = (m) => [...m.values()].sort((a, b) => b.n - a.n);
   return { me: sorted(groups.me), opp: sorted(groups.opp) };
@@ -1550,7 +1608,7 @@ function renderExplorer() {
     return `<div class="ex-row" data-uci="${x.uci}" title="Won ${x.W}, drew ${x.D}, lost ${x.L}${book ? ` · ${esc(book[1])}` : ''}${avg == null ? '' : ` · costs ${(avg / 100).toFixed(1)} on average`}">
       <span class="san">${x.san}${book ? '<span class="tag">book</span>' : ''}</span><span class="n">${x.n}</span>
       <div class="wdl">${seg('W', 'w')}${seg('D', 'd')}${seg('L', 'l')}</div>
-      <span class="cost ${avg == null ? '' : `lbl-${labelFor(avg, false)}`}">${avg == null ? '' : (avg / 100).toFixed(1)}</span></div>`;
+      <span class="cost ${avg == null ? '' : `lbl-${labelFor(x.drop / x.judged, false)}`}">${avg == null ? '' : (avg / 100).toFixed(1)}</span></div>`;
   }).join('')}`;
   const best = v.score?.[1] && playLine(fen, v.score[1]).moves[0];
   const card = puzzles[cardId(accountUser(), posKey(fen))];
@@ -1593,7 +1651,7 @@ function verdict(g) {
 // How each side played a phase: the label its average move cost would earn.
 function phaseLabel(g, color, phase) {
   const js = review(g).moves.filter((j, i) => j && g.moves[i].color === color && phaseOf(g, i) === phase);
-  return js.length ? labelFor(js.reduce((t, j) => t + Math.min(j.loss, CLAMP), 0) / js.length, false) : null;
+  return js.length ? labelFor(js.reduce((t, j) => t + j.drop, 0) / js.length, false) : null;
 }
 
 function renderReview() {
@@ -1620,7 +1678,7 @@ function renderReview() {
     <div class="rv-grid">
       ${row('<span></span>', both((c) => `<span class="who" title="${esc(g.sides[c].username)}"><span class="pc pc-${c}"></span>${esc(g.sides[c].username)}</span>`))}
       ${row('<span class="k">Rating</span>', both((c) => `<span class="v">${g.sides[c].rating}${ratingChangeHtml(g, c)}</span>`))}
-      ${row('<span class="k">Accuracy</span>', both((c) => box(c, st[c].accuracy.toFixed(1))))}
+      ${row('<span class="k">Accuracy</span>', both((c) => box(c, st[c].accuracy?.toFixed(1) ?? '–')))}
       <span class="hr"></span>
       ${REVIEW_ROWS.map(([k, name]) => row(`<span>${name}</span>`, both((c) => countCell(k, c, st[c][k])), clsBadge(k))
         + (S.rvPeek?.k === k ? `<div class="rv-peek">${moveRows(g, r.moves.flatMap((j, i) => (j?.label === k && g.moves[i].color === S.rvPeek.c ? [{ j, i }] : [])))}</div>` : '')).join('')}
@@ -1662,7 +1720,7 @@ function lineView(L) {
   const here = at(L.i), mv = L.moves[L.i - 1], before = mv && at(L.i - 1);
   if (!mv || !here || !before) return { here, label: null };
   const sign = mv.color === 'w' ? 1 : -1;
-  return { here, label: labelFor(Math.max(0, sign * clamp(before[0]) - sign * clamp(here[0])), before[1].split(' ')[0] === mv.lan) };
+  return { here, label: labelFor(dropOf(sign * before[0], sign * here[0]), before[1].split(' ')[0] === mv.lan) };
 }
 
 // Plays the engine's move in the position shown, so you can click through how a game would have gone.
@@ -1678,7 +1736,10 @@ function shown() {
   const g = S.cur, L = S.line;
   if (!L) return { fen: g.fens[S.ply], last: g.moves[S.ply - 1], label: review(g)?.moves[S.ply - 1]?.label, score: evs(g)?.[S.ply] || null, shapes: gameShapes(g) };
   const last = L.moves[L.i - 1], { here, label } = lineView(L), best = here?.[1].split(' ')[0];
-  return { fen: L.fens[L.i], last, label, score: here, shapes: [...(label ? [badge(last.to, label)] : []), ...(best ? [arrowTo(best, 'paleBlue')] : [])] };
+  // On the line's first move, circle what its explanation is about: red for what the punishment hits,
+  // green for what the best move takes or attacks.
+  const marks = L.i === 1 && L.marks ? [...new Set(L.marks)].map((sq) => ({ orig: sq, brush: L.kind === 'better' ? 'green' : 'red' })) : [];
+  return { fen: L.fens[L.i], last, label, score: here, shapes: [...(label ? [badge(last.to, label)] : []), ...(best ? [arrowTo(best, 'paleBlue')] : []), ...marks] };
 }
 
 // ---------- rendering ----------
@@ -1688,6 +1749,7 @@ const cg = Chessground($('#board'), {
   // Picking up a piece of the side to move shows where it can go; moving it plays on (see boardMove).
   movable: { free: false, color: undefined, showDests: true, events: { after: (from, to) => boardMove(from, to) } },
   premovable: { enabled: false },
+  events: { select: (key) => boardSelect(key) },
 });
 
 const monthLabel = (ym) => new Date(ym + '-01T12:00:00').toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
@@ -1730,9 +1792,10 @@ function fillTimeClasses() {
 
 // Scrolls only the list, never the page, so stepping through moves on a phone keeps the board in view.
 function scrollInList(li) {
-  const p = li.parentElement;
-  if (li.offsetTop < p.scrollTop) p.scrollTop = li.offsetTop;
-  else if (li.offsetTop + li.offsetHeight > p.scrollTop + p.clientHeight) p.scrollTop = li.offsetTop + li.offsetHeight - p.clientHeight;
+  // The item's top within the list's scrolled content, whatever its offsetParent is.
+  const p = li.parentElement, top = li.getBoundingClientRect().top - p.getBoundingClientRect().top - p.clientTop + p.scrollTop;
+  if (top < p.scrollTop) p.scrollTop = top;
+  else if (top + li.offsetHeight > p.scrollTop + p.clientHeight) p.scrollTop = top + li.offsetHeight - p.clientHeight;
 }
 
 const listItem = (g) => document.querySelector(`#gameList li[data-url="${CSS.escape(g.url)}"]`);
@@ -1771,7 +1834,7 @@ function moveRows(g, picks) {
     const m = g.moves[i], best = j.label !== 'best' && j.label !== 'book' && playLine(g.fens[i], j.line).moves[0]?.san;
     return `<button data-ply="${i + 1}"${i + 1 === S.ply && g === S.cur ? ' class="cur"' : ''} title="${NAME[j.label]} · ${fmtEval(j.before)} to ${fmtEval(j.after)}">
       <span class="no">${m.no}${m.color === 'w' ? '.' : '…'}</span><span><b class="lbl-${j.label}">${m.san}${sym[j.label] || ''}</b></span>
-      <span class="best">${best ? `best ${best}` : ''}</span></button>`;
+      <span class="best"${best ? ' data-best title="Show the best move on the board"' : ''}>${best ? `best ${best}` : ''}</span></button>`;
   }).join('');
 }
 
@@ -1893,6 +1956,83 @@ function moveCursor() {
   line.setAttribute('x1', x); line.setAttribute('x2', x);
 }
 
+// The other side's pieces, pawns left out, that the piece `mv` just moved now attacks. With `all`, every
+// one of them and the king; without, only those worth more than the attacker or left undefended.
+function hits(fen, mv, all) {
+  const c = new Chess(fen);
+  return c.board().flat().filter((p) => p && p.color !== mv.color && p.type !== 'p' && (all || p.type !== 'k')
+    && c.attackers(p.square, mv.color).includes(mv.to)
+    && (all || VAL[p.type] > VAL[mv.piece] || !c.attackers(p.square, p.color).length));
+}
+const named = (ps) => ps.map((p) => `the ${PIECE_NAME[p.type]} on ${p.square}`);
+const andList = (xs) => xs.length > 1 ? `${xs.slice(0, -1).join(', ')} and ${xs.at(-1)}` : xs[0];
+
+// Your pieces (not pawns) that move i left hanging: attacked and undefended, or attacked by something
+// cheaper, where they were safe before it. Claimed only when the engine's reply line takes one, or the
+// game's next move does without being an error, so a piece that only looks loose isn't reported.
+function leftHanging(g, i, j) {
+  const m = g.moves[i], opp = m.color === 'w' ? 'b' : 'w', before = new Chess(g.fens[i]), after = new Chess(g.fens[i + 1]);
+  const loose = (c, sq, type) => {
+    const by = c.attackers(sq, opp);
+    return by.length > 0 && (!c.attackers(sq, m.color).length || by.some((x) => VAL[c.get(x).type] < VAL[type]));
+  };
+  const taken = new Set(playLine(g.fens[i + 1], j.reply).moves.filter((x) => x.color === opp && x.captured).map((x) => x.to));
+  const next = g.moves[i + 1], nj = review(g).moves[i + 1], took = before.get(m.to)?.type;
+  if (next && nj && !nj.err && after.get(next.to)) taken.add(next.to);
+  return after.board().flat().filter((p) => p && p.color === m.color && p.type !== 'p' && p.type !== 'k' && taken.has(p.square)
+    && loose(after, p.square, p.type)
+    && (p.square === m.to ? !(took && VAL[took] >= VAL[p.type]) : !loose(before, p.square, p.type)));
+}
+
+// Why a move other than the engine's falls short, read off the engine's own lines: what the best move
+// does instead (`best`, a sentence) and, for errors, what the move allows (`allows`, a clause without
+// its subject: "allows 11.Qxa5, which wins a knight"). Material counts from the move itself, so a trade
+// it starts isn't reported as a loss. `good` and `bad` are the squares those reasons are about, for
+// circling on the board: what the best move hits or wins, and what the move left loose or lost.
+function moveWhy(g, i, j) {
+  const m = g.moves[i], sign = m.color === 'w' ? 1 : -1, out = { allows: null, best: null, good: [], bad: [] };
+  const played = lineFacts(g.fens[i], `${m.uci} ${j.reply}`);
+  const bl = playLine(g.fens[i], j.line), b1 = bl.moves[0];
+  if (b1) {
+    const bf = lineFacts(g.fens[i], j.line), targets = hits(bl.fens[1], b1, false);
+    const wins = bf.net >= 1 && bf.net > played.net, first = bl.moves.find((x) => x.color === m.color && x.captured);
+    const what = isMate(j.before) && sign * j.before > 0 ? `it mates in ${MATE - Math.abs(j.before)}`
+      : wins ? `it ${materialPhrase(bf)}`
+      : b1.captured ? `it takes the ${PIECE_NAME[b1.captured]} on ${b1.to}${targets.length ? ` and attacks ${andList(named(targets))}` : ''}`
+      : targets.length ? `it attacks ${andList(named(targets))}`
+      : b1.san.includes('+') ? 'it gives check'
+      : `it keeps the position ${standing(j.before)} (${fmtEval(j.before)})`;
+    out.best = `<b>${numberedSan(bl, '…')[0]}</b> was best: ${what}.`;
+    out.good = [...targets.map((p) => p.square), ...(b1.captured ? [b1.to] : []), ...(wins && first ? [first.to] : [])];
+  }
+  const rl = j.err ? playLine(g.fens[i + 1], j.reply) : null, r1 = rl?.moves[0];
+  if (!r1) return out;
+  const reply = `<b>${numberedSan(rl, '…')[0]}</b>`;
+  if (isMate(j.after) && sign * j.after < 0) {
+    out.allows = `allows mate in ${MATE - Math.abs(j.after)}, starting with ${reply}`;
+    out.bad = new Chess(g.fens[i + 1]).board().flat().filter((p) => p?.type === 'k' && p.color === m.color).map((p) => p.square);
+    return out;
+  }
+  // What the opponent comes out with, counted from your move: their gain is your loss.
+  const theirs = { net: -played.net, took: played.lost, lost: played.took, mate: false };
+  const forks = r1.captured ? [] : hits(rl.fens[1], r1, true), hanging = leftHanging(g, i, j);
+  const fork = forks.length >= 2, lost = theirs.net >= 1 && rl.moves.find((x) => x.color !== m.color && x.captured);
+  const parts = [fork && `attacks ${andList(named(forks))} at once`, r1.san.includes('+') && theirs.net > 0 && 'comes with check',
+    theirs.net >= 1 && materialPhrase(theirs)].filter(Boolean);
+  // Nothing tactical: say so when the engine's line moves the same piece straight away again, which is
+  // how a move that only wasted time shows up in it.
+  const again = rl.moves[1]?.from === m.to && !hanging.length && !parts.length && rl.moves[1];
+  // When only the game's next move takes the loose piece (the engine's line plays something first), say so,
+  // so the reason matches what the board shows.
+  const next = g.moves[i + 1], tookInGame = next && next.to !== r1.to && hanging.some((p) => p.square === next.to);
+  const took = tookInGame ? ` (<b>${moveName(next)}</b> took ${hanging.length > 1 ? 'one' : 'it'} in the game)` : '';
+  out.allows = hanging.length ? `leaves ${andList(named(hanging))} hanging${took}${parts.length ? `, and ${reply} ${andList(parts)}` : ''}`
+    : again ? `allows ${reply}, and the engine's line moves the ${PIECE_NAME[m.piece]} off ${m.to} again with <b>${numberedSan(rl, '…')[1]}</b>`
+    : `allows ${reply}${parts.length ? `, which ${andList(parts)}` : ''}`;
+  out.bad = [...hanging.map((p) => p.square), ...(fork ? forks.map((p) => p.square) : []), ...(lost ? [lost.to] : [])];
+  return out;
+}
+
 // Hover draws the move's arrow; a click puts the move on the board (see tryLine).
 const moveBtn = (kind, label, f, note) => `<button class="mvbtn mv-${kind}" data-line="${kind}" title="Show it on the board, then step through: ${esc(f.san.join(' '))}">
   <span class="k">${label}</span><b>${f.san[0]}</b>${note ? `<small>${note}</small>` : ''}</button>`;
@@ -1902,7 +2042,7 @@ function coachHtml(g) {
   if (ply === 0) {
     const ev0 = evs(g)?.[0];
     return `<div class="coach-head"><span class="ct">Start position</span><span class="cev">${ev0 ? fmtEval(ev0[0]) : '–'}</span></div>
-      <p>Step with ← →, or press Next key moment (↓) for the moves that decided the game. h shows the engine's move, f flips the board.</p>`;
+      <p>Step with ← →, or press Next key moment (↓) for the moves that decided the game. Click a piece that moved wrong to see why it's a problem. h shows the engine's move, f flips the board.</p>`;
   }
   const i = ply - 1, m = g.moves[i], j = r?.moves[i];
   if (!j) return `<div class="coach-head"><span class="ct">${moveName(m)}</span></div><p>Analysing…</p>`;
@@ -1927,14 +2067,15 @@ function coachHtml(g) {
     else if (bm >= 300 && am < 150) out.push(`${m.mine ? 'You were' : `${oppName} was`} winning (${fmtEval(j.before)}). Now it's ${standing(j.after)} (${fmtEval(j.after)}).`);
     else out.push(`It costs about ${(Math.min(j.loss, CLAMP) / 100).toFixed(1)} pawns: ${fmtEval(j.before)} before, ${fmtEval(j.after)} after.`);
     if (j.err && prevErr) out.push(`${m.mine ? oppName : 'You'} had just played ${LABEL[prev.label]}, and this move lets it go.`);
+    const why = moveWhy(g, i, j);
+    if (why.allows && !(isMate(j.after) && am < 0)) out.push(`It ${why.allows}.`);
+    if (why.best) out.push(why.best);
     const better = lineFacts(g.fens[i], j.line);
-    if (better.san.length) btns.push(moveBtn('better', 'Best move', better, [fmtEval(j.before), materialPhrase(better)].filter(Boolean).join(' · ')));
     const reply = j.err ? lineFacts(g.fens[ply], j.reply) : null;
-    if (reply?.san.length) btns.push(moveBtn('reply', m.mine ? `${oppName}'s reply` : 'Your reply', reply, materialPhrase(reply)));
-    // Explain shows the position you should have reached: after the better move when the error was
-    // yours, after the reply that punishes it when it was your opponent's.
-    const explain = m.mine ? better : reply;
-    if (j.err && explain?.san.length) btns.unshift(`<button class="primary" data-line="${m.mine ? 'better' : 'reply'}" title="${m.mine ? `Show the position after ${explain.san[0]}, the move to play instead` : `Show how to punish it: the position after ${explain.san[0]}`}">Explain</button>`);
+    // On an error, Explain (or a click on the piece that moved, or e) plays the reply that punishes it, so
+    // the board shows why it's a problem. Best move puts the engine's move on the board instead.
+    if (reply?.san.length) btns.push(`<button class="primary" data-line="reply" title="Play ${reply.san[0]}, the reply that punishes it (click the piece, or e)">Explain</button>`);
+    if (better.san.length) btns.push(moveBtn('better', 'Best move', better, [fmtEval(j.before), materialPhrase(better)].filter(Boolean).join(' · ')));
   }
 
   const finish = ply === g.moves.length && g.terminal == null && playLine(g.fens[ply], evs(g)?.[ply]?.[1]).moves[0];
@@ -1955,15 +2096,16 @@ function lineCoachHtml(v) {
   const toks = numberedSan(L, '…').map((t, k) => `<span class="lm${k === L.i - 1 ? ' cur' : ''}">${t}</span>`).join(' ');
   const head = v.score ? fmtEval(v.score[0]) : 'thinking…';
   return `<div class="coach-head"><span class="cls cls-line">▶</span><span class="ct">${esc(L.title)}</span><span class="cev">${head}</span></div>
+    ${L.why ? `<p>${L.why}</p>` : ''}
     <p>${toks}</p>
     ${ownLineHtml(L, v)}
-    <div class="line-nav"><button data-act="prev" title="Back (←)">◀</button><button data-act="next" title="Forward (→)">▶</button><button data-act="exit">Back to game (Esc)</button></div>`;
+    <div class="line-nav"><button data-act="prev" title="Back (←)">◀</button><button data-act="next" title="Forward (→)">▶</button>${L.other || ''}<button data-act="exit">Back to game (Esc)</button></div>`;
 }
 
 // Your own line: how the last move rates, and the engine's move from here with a button to play it.
 function ownLineHtml(L, { score: here, label }) {
   const out = [], mv = L.moves[L.i - 1], fen = L.fens[L.i];
-  if (mv && label) {
+  if (mv && label && !(L.why && L.i === 1)) {
     const [, side, , , , no] = L.fens[L.i - 1].split(' ');
     out.push(`<p><b>${no}${side === 'w' ? '.' : '…'} ${mv.san}</b> is <b style="color:var(--${label})">${LABEL[label]}</b>.</p>`);
   }
@@ -2007,6 +2149,23 @@ function gameShapes(g) {
   }
   if (next && S.hint && !(settings.arrows && j?.err)) shapes.push(arrowTo(next, 'paleBlue'));
   return shapes;
+}
+
+// ---------- explain on click ----------
+// Clicking the piece that just moved, when its move was an error, plays the reply that punishes it (as
+// Explain and e do); on a good move that wasn't the engine's, it plays the better one. Chessground reports
+// every square clicked; with a piece picked up that can go there, the click is that piece's move instead.
+// Deferred, so the board finishes handling its own click before it is redrawn.
+function explainMove() {
+  const j = S.cur && review(S.cur)?.moves[S.ply - 1];
+  if (j?.err) tryLine('reply');
+  else if (j && j.label !== 'best' && j.label !== 'book') tryLine('better'); // nothing to punish: show what was better
+}
+function boardSelect(key) {
+  const held = cg.state.selected;
+  if (held && cg.state.movable.dests?.get(held)?.includes(key)) return;
+  if (S.line || !S.cur || S.cur.moves[S.ply - 1]?.to !== key) return;
+  setTimeout(explainMove);
 }
 
 function renderPosition() {
@@ -2376,9 +2535,9 @@ function puzzlesOf(g) {
   const r = review(g), out = [];
   r.moves.forEach((j, i) => {
     const m = g.moves[i];
-    if (!m.mine || !j?.best || (j.label !== 'mistake' && j.label !== 'blunder')) return;
-    // Skip positions that were already lost, and moves that barely changed the outcome (+6 to +5 is
-    // a 100 cp "mistake" but still winning): neither teaches much.
+    if (!m.mine || !j?.best || !j.err) return;
+    // Skip positions that were already lost, and errors that barely changed the outcome: neither
+    // teaches much. MIN_SWING sits just under a mistake, so a costly inaccuracy still makes a puzzle.
     const pov = (s) => clamp(m.color === 'w' ? s : -s);
     const drop = winPct(pov(j.before)) - winPct(pov(j.after));
     if (pov(j.before) < -300 || drop < MIN_SWING) return;
@@ -2408,7 +2567,7 @@ function puzzlesOf(g) {
 }
 
 // Bump when puzzlesOf changes what it derives, so every game's puzzles are rebuilt once.
-const PUZZLE_VERSION = 1;
+const PUZZLE_VERSION = 2;
 
 // Writes rebuilt puzzles (mistakes or opening cards) in the caller's transaction and deletes the `gone`
 // ids. Each keeps its practice history, the newest from this device or another, so rebuilding never
@@ -2452,7 +2611,7 @@ async function harvestGames(games) {
 // Cards are rebuilt from every loaded game and keep their practice history like puzzles do. Unlike
 // mistakes, cards have no `url`: they span games, and the url index finds the puzzles of one game.
 const OPENING_PLIES = 24;
-const OPENING_VERSION = 1;
+const OPENING_VERSION = 2;
 const cardId = (user, key) => `open:${user}:${key}`;
 const openingIds = () => Object.values(puzzles).filter((p) => p.kind === 'opening' && mine(p)).map((p) => p.id);
 
@@ -2463,7 +2622,7 @@ function openingCards(user) {
     if (mineHere.length < 2) continue;
     const judged = mineHere.map(({ g, ply }) => ({ g, ply, m: g.moves[ply], j: judge(g, g.moves[ply], ply, evs(g)[ply], evs(g)[ply + 1]) })).filter((x) => x.j);
     const pov = (x, s) => clamp(x.m.color === 'w' ? s : -s);
-    const slips = judged.filter((x) => x.j.loss >= TH.inaccuracy && x.m.uci !== x.j.best && Math.abs(pov(x, x.j.before)) < 300);
+    const slips = judged.filter((x) => x.j.loss >= SLIP && x.m.uci !== x.j.best && Math.abs(pov(x, x.j.before)) < 300);
     if (!slips.length) continue;
     // The slip you make most often here, from its latest game, stands for the card.
     const often = {};
@@ -2472,8 +2631,8 @@ function openingCards(user) {
     const s = slips.filter((x) => x.m.uci === top).sort((a, b) => b.g.end - a.g.end)[0];
     const moves = {};
     for (const x of judged) {
-      moves[x.m.uci] ||= { san: x.m.san, n: 0, loss: 0 };
-      moves[x.m.uci].n++; moves[x.m.uci].loss += Math.min(x.j.loss, CLAMP);
+      moves[x.m.uci] ||= { san: x.m.san, n: 0, drop: 0 };
+      moves[x.m.uci].n++; moves[x.m.uci].drop += x.j.drop;
     }
     const g = s.g, eco = [...g.fens.slice(0, s.ply + 1)].reverse().map((f) => ECO?.[posKey(f)]).find(Boolean);
     cards.push({
@@ -2481,7 +2640,7 @@ function openingCards(user) {
       fen: g.fens[s.ply], color: s.m.color, no: s.m.no, best: s.j.best, line: s.j.line, before: s.j.before, depth: g.analysis?.d || settings.depth,
       played: s.m.san, playedUci: s.m.uci, after: s.j.after, reply: s.j.reply, label: s.j.label,
       count: judged.length, slips: slips.length, cost: winPct(pov(s, s.j.before)) - winPct(pov(s, s.j.after)), opening: eco?.[1] || g.opening?.name || '',
-      moves: Object.values(moves).sort((a, b) => b.n - a.n).map((x) => ({ san: x.san, n: x.n, label: labelFor(x.loss / x.n, false) })),
+      moves: Object.values(moves).sort((a, b) => b.n - a.n).map((x) => ({ san: x.san, n: x.n, label: labelFor(x.drop / x.n, false) })),
       from: { url: g.url, gid: g.id, ym: g.ym, ply: s.ply + 1 }, // the latest game with this slip, for Open game
     });
   }
@@ -2656,14 +2815,14 @@ const consequence = (f) => (f.mate ? 'leads to mate' : materialPhrase(f));
 // Scores seen from the side solving the puzzle.
 const mover = (p, s) => (p.color === 'w' ? s : -s);
 
-// One move of the combination: right if it's the engine's move or loses less than an inaccuracy.
+// One move of the combination: right if it's the engine's move or loses less than SLIP centipawns.
 // When the combination goes on, also returns the opponent's reply and the next position's evaluation.
 async function checkStep(p, mv, c) {
   const path = [...PZ.path, mv.lan];
   if (c.isCheckmate()) return { ok: true, text: `<b>${combo(p, path)}</b>. Checkmate.` };
   const { after, replyLine } = await scoreMove(p, mv, c);
   const loss = clamp(mover(p, PZ.eval)) - clamp(mover(p, after));
-  if (loss >= TH.inaccuracy) return { ok: false, text: missText(p, mv, c, loss, after, replyLine) };
+  if (loss >= SLIP) return { ok: false, text: missText(p, mv, c, loss, after, replyLine) };
   const alt = mv.lan !== PZ.best, reply = replyLine.split(' ')[0];
   const next = reply && PZ.step + 1 < MAX_STEPS ? await continuation(p, c, reply) : null;
   if (next) return { ok: true, reply, next, text: `${alt ? `<b>${mv.san}</b> works too.` : `Good: <b>${mv.san}</b>.`} ${kindOf(p).opponent(p)} replies…` };
@@ -3004,7 +3163,11 @@ $('#gameList').addEventListener('click', (e) => {
     return;
   }
   const peek = e.target.closest('li.peek [data-ply]');
-  if (peek) { const g = S.byUrl.get(peek.closest('li.peek').dataset.url); select(g, +peek.dataset.ply); return; }
+  if (peek) {
+    select(S.byUrl.get(peek.closest('li.peek').dataset.url), +peek.dataset.ply);
+    if (e.target.closest('[data-best]')) showBest();
+    return;
+  }
   const li = e.target.closest('li.game');
   if (!li) return;
   if (e.target.closest('[data-peek]')) { S.peek = S.peek === li.dataset.url ? null : li.dataset.url; renderList(); return; }
@@ -3087,6 +3250,7 @@ $('#review').addEventListener('click', (e) => {
   const mv = e.target.closest('.rv-peek [data-ply]');
   if (mv) {
     go(+mv.dataset.ply);
+    if (e.target.closest('[data-best]')) showBest();
     document.querySelectorAll('.rv-peek .cur').forEach((b) => b.classList.remove('cur'));
     mv.classList.add('cur');
   }
@@ -3114,6 +3278,7 @@ document.addEventListener('keydown', (e) => {
     ArrowLeft: () => step(-1), ArrowRight: () => step(1), Escape: () => stopLine(), Home: () => go(0), End: () => go(Infinity),
     ArrowUp: () => jumpMoment(-1), ArrowDown: () => jumpMoment(1),
     f: () => $('#bFlip').click(), h: () => { S.hint = !S.hint; renderPosition(); },
+    b: () => (S.line ? stopLine() : showBest()), e: () => (S.line ? stopLine() : explainMove()),
   }[e.key];
   if (k) { e.preventDefault(); k(); }
 });
@@ -3173,10 +3338,19 @@ storageReady.then(async () => {
   store.set('cca:synced', true);
 });
 sendOutbox();
-// The desktop app quits a few minutes after no open tab has pinged it.
-const ping = () => fetch('__ping', { cache: 'no-store' }).catch(() => {});
+// The desktop app quits a few minutes after no open tab has pinged it. It answers with a stamp of the page
+// it serves: when that changes, the app was rebuilt, and a tab still running the old page reloads as soon
+// as it is in view.
+let pageStamp = null;
+const ping = () => fetch('__ping', { cache: 'no-store' }).then((r) => (r.ok ? r.text() : '')).then((t) => {
+  const stamp = t.split(' ')[1];
+  if (!stamp) return;
+  pageStamp ??= stamp;
+  if (stamp !== pageStamp && document.visibilityState === 'visible') location.reload();
+}).catch(() => {});
 ping();
 setInterval(ping, 30000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') ping(); });
 renderGame();
 renderPuzzleCount();
 setPane(settings.pane === 'explorer' ? 'explorer' : 'moves');

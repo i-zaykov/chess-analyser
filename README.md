@@ -16,7 +16,7 @@ app/build.sh
 ```
 
 That installs **Chess Analyser** to `~/Applications` (Spotlight and Raycast find it). Opening it starts a small server on http://localhost:8765 and opens that page in your default browser.
-It has no Dock icon. It quits about 3 minutes after you close the last tab, and opening it again while it runs opens another tab.
+It has no Dock icon. It quits about 3 minutes after you close the last tab, and opening it again while it runs opens another tab. After a rebuild, tabs still showing the old page reload by themselves when you next look at them.
 Keep using `localhost`, not `127.0.0.1`. The browser caches analyses per address.
 
 The page and the opening table are compiled into the app. After changing `index.html` or `eco.json`, run `app/build.sh` again.
@@ -25,19 +25,21 @@ Without the Mac app, use the page above or serve the folder with any static serv
 
 ## What it does
 
-- The design follows the Commercial Admin design system (green-tinted neutrals, Figtree and Bricolage Grotesque, hairline cards, bundled in `vendor/fonts`), with a classic wood board and chess.com-style move badges. The page is light-only. Wide screens show games, board and review side by side; medium screens put the games under the board; phones get the two-screen layout.
+- The design follows the Commercial Admin design system (green-tinted neutrals, Figtree and Bricolage Grotesque, hairline cards, bundled in `vendor/fonts`), with a classic wood board and chess.com-style move badges. The page is light-only. Wide screens show games, board and review side by side; medium screens put the games under the board; phones get the two-screen layout. Above phone size the board fits the window with its controls, and the move card (the verdict, why, Explain and Best move) heads the column next to the board, so it is in view without scrolling. On a phone the card sits under the board, and the step buttons, the card's buttons, the pane tabs and the move list are at least 44 px tall for thumbs.
 
 - Loads the archive list for a username, then one month of games. Variant games (960, etc.) are skipped.
 - Analyses every position at a fixed depth (default 18, set in Settings). Each "engine" is one single-threaded Stockfish worker, and positions are spread across them, so one game uses all of them.
-- Labels moves by eval loss against the engine's best move: inaccuracy 50 cp, mistake 100 cp, blunder 300 cp. A move that matches the engine's top choice is `best`. Moves up to the deepest position found in the ECO table are `book` unless they lose 300 cp or more.
+- Labels moves by the win-chance points they throw away, with Chess.com's cutoffs: inaccuracy 5, mistake 10, blunder 20. Win chance comes from the eval on the same curve as the graph, so walking into mate at −6 costs less than dropping a piece at equality. A move that matches the engine's top choice is `best`. Moves up to the deepest position found in the ECO table are `book` unless they are blunders.
 - Move list shows the label, the eval after the move and the engine's line when the move wasn't best. The graph plots win percentage. Click it to jump to that move.
 - On a phone the Games tab is two screens: the list, and the game you opened with a ‹ Games button back. It opens on your latest game's review summary, like Chess.com's app, and Start review brings in the board at the first key moment; the Review tab goes back to the summary.
 - Opening the app shows your latest game. New games show up without a reload: the newest month is fetched again when you press Load, when the tab comes back into view, and every 3 minutes while it's visible, and your newest game stays open if it was. A phone always starts on your latest game, even from a link to another one, and coming back to it after a new game or 5 minutes away opens the latest game again; a quicker switch keeps your place. Next key moment (or `↓`, `↑` to go back) jumps to the moves that decided the game: mistakes and blunders by either side that threw away at least 8 win-chance points.
-- Keys: `←` `→` step, `Home` `End`, `↑` `↓` key moments, `h` hint, `f` flips the board.
+- Keys: `←` `→` step, `Home` `End`, `↑` `↓` key moments, `b` best move instead of the last one (again to go back), `e` plays the reply that punishes the last move, `h` hint, `f` flips the board.
 - Each move gets a Chess.com-style badge on the square it landed on (★ best, ✓ excellent or good, a book for theory, ?! ? ?? for errors), and its squares take the same colour.
 - Green arrow is what should have been played instead of the last move. Red arrow is the reply that punishes an error. Blue arrow (Hint, `h`) is the engine's move in the current position.
-- Explain, on every mistake, shows the position you should have reached: after the better move when the error was yours, after the move that punishes it when it was your opponent's.
-- Best move and Your reply put that move on the board as if it had been played, with the rest of the engine's line queued: `→` or Play steps through it (instantly, the engine already scored it), and any other move branches off into your own line.
+- Every move that wasn't the engine's choice says why, from the engine's lines: what it allowed (a piece left hanging, a fork, a check that wins material, mate) and what the best move does instead (wins material, takes or attacks a piece, gives check, mates).
+- Clicking the piece that moved wrong (or Explain, or `e`) plays the reply that punishes it (on a good move that wasn't the engine's, the better move instead), so the board shows why it's a problem: the line to step through with `→`, red circles on what the reply hits (a piece left hanging, a fork's targets, the king it mates), and the reason, such as "10…Qe7 leaves the knight on a5 hanging". The line and its reason replace the move card, next to the board above phone size and under it on a phone, until you go back (Esc). Show best instead switches to the engine's move.
+- Best move (or `b`) puts the engine's move on the board instead, with its reason kept beside the line. In the error lists under a game and in the review, clicking "best Nf6" opens the game there with the best move already on the board.
+- Explain and Best move put that move on the board as if it had been played, with the rest of the engine's line queued: `→` or Play steps through it (instantly, the engine already scored it), and any other move branches off into your own line.
 - The board is playable. Picking up a piece of the side to move shows where it can go. Playing the game's own move steps forward; any other move starts your own line from there. The engine scores each position of it, badges your moves, and shows its best move with a button to play it, so you can click through how a resigned or abandoned game would have finished. `Esc` goes back to the game.
 - Explorer (next to Moves): for the position on the board, what you played there and what your opponents played, across every loaded game, with games, your result and the average cost of each move, book moves marked, and the engine's move. Click a move to play it. Lichess's explorer needs a login now, so it isn't used.
 - Opening drills (Puzzles > Your openings): positions from the first 12 moves that your games reach at least twice, where at least once you played a move costing 50 cp or more while the game was roughly level. One card per position, however many games it came up in, on the same schedule as puzzles. A missed card joins the daily reviews.
@@ -52,8 +54,8 @@ Without the Mac app, use the page above or serve the folder with any static serv
 
 ## Puzzles
 
-- Each of your mistakes and blunders becomes a "find the better move" puzzle once its game is analysed, in the page or by the batch script. A month's puzzles are built when you load that month.
-- Skipped: positions that were already lost, and moves that changed your winning chances by less than 8 points (+6 to +5 is a 100 cp "mistake" but still winning).
+- Each of your errors that cost 8 or more win-chance points becomes a "find the better move" puzzle once its game is analysed, in the page or by the batch script. That is every mistake and blunder plus the costliest inaccuracies. A month's puzzles are built when you load that month.
+- Skipped: positions that were already lost.
 - One puzzle per idea: mistakes a few moves apart with the same better move, or punished on the same square, are merged and the costliest one kept.
 - The library is not a to-do list. Each day shows the reviews that are due plus 10 new puzzles (Settings > New puzzles per day). New ones come from the core set, the two costliest real lessons of each game (a tactic or a blunder), ranked by how much they cost and how recent they are, at most one per game and at most a third of a day sharing a main pattern. The badge counts only today's puzzles; "10 more" adds another batch.
 - The dropdown in Puzzles, or Practise in Patterns, drills one pattern (say "Walked into a fork") 10 at a time: unseen first, then the ones you got wrong.

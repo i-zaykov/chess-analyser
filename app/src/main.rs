@@ -55,6 +55,11 @@ const DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../data");
 // Fixed port: the browser keys the analysis cache by origin, so it must stay http://localhost:8765.
 const PORT: u16 = 8765;
 const SIGNATURE: &[u8] = b"chess-analyser";
+
+// 64-bit FNV-1a, enough to tell two builds of the page apart.
+fn fnv1a(bytes: &[u8]) -> u64 {
+    bytes.iter().fold(0xcbf2_9ce4_8422_2325, |h, &b| (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3))
+}
 const IDLE_EXIT_SECS: u64 = 180;
 const AGENT_LABEL: &str = "local.chess-analyser";
 
@@ -203,7 +208,12 @@ impl Server {
         }
         if path == "/__ping" {
             self.last_ping.store(now(), Ordering::Relaxed);
-            return respond(&mut s, 200, "text/plain", SIGNATURE, head);
+            // The answer carries a stamp of the page this server hands out, so a tab opened before a
+            // rebuild can tell it is running an old page and reload.
+            let stamp = self.file("index.html").map(|b| fnv1a(&b)).unwrap_or(0);
+            let mut body = SIGNATURE.to_vec();
+            body.extend(format!(" {stamp:016x}").bytes());
+            return respond(&mut s, 200, "text/plain", &body, head);
         }
         if path == "/api/phone" && mac {
             return respond(&mut s, 200, "application/json", self.phone_status().as_bytes(), head);
