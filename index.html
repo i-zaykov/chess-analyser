@@ -108,8 +108,8 @@ nav.bar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; paddin
 #monthProgress { font-variant-numeric: tabular-nums; }
 #analyseMonth { min-height: 0; height: 30px; }
 #analyseMonth:disabled { display: none; } /* nothing to analyse: the progress says so */
-/* The filters are about the game list; Puzzles and Patterns have their own sets. */
-body:is([data-view="puzzles"], [data-view="patterns"]) nav.bar > :is(.divider, .filters) { display: none; }
+/* The filters are about the game list; Puzzles, Patterns and the trainers have their own sets. */
+body:is([data-view="puzzles"], [data-view="patterns"], [data-view="openings"], [data-view="endgames"]) nav.bar > :is(.divider, .filters) { display: none; }
 
 /* ---------- layout ---------- */
 main { max-width: 1480px; margin: 0 auto; padding: 20px 24px 40px; }
@@ -184,7 +184,7 @@ li.game.broken { opacity: .5; cursor: default; }
 #board { width: 100%; aspect-ratio: 1 / 1; }
 #board cg-board { border-radius: 4px; box-shadow: 0 0 0 1px rgb(0 0 0 / 0.12), var(--shadow-lg); }
 /* The last move's squares: the classic yellow, or the label's colour once the move is judged (--mv). */
-:is(#board, #pBoard) square.last-move { background-color: color-mix(in srgb, var(--mv, rgb(247 236 116)) 55%, transparent); }
+:is(#board, #pBoard, #tBoard) square.last-move { background-color: color-mix(in srgb, var(--mv, rgb(247 236 116)) 55%, transparent); }
 .controls { display: flex; align-items: center; gap: 8px; padding-left: 30px; }
 .navgroup { display: flex; border: 1px solid var(--c-line); border-radius: 8px; background: #fff; overflow: hidden; }
 .navgroup button { width: 40px; min-height: 0; height: 34px; padding: 0; border: 0; border-radius: 0; background: none; }
@@ -318,8 +318,8 @@ tr.click { cursor: pointer; } tr.click:hover td { background: var(--c-surface-al
 
 /* ---------- puzzles ---------- */
 .puzzle-view { display: grid; grid-template-columns: minmax(300px, 560px) minmax(280px, 380px); gap: 20px; align-items: start; justify-content: center; }
-#pBoard { width: 100%; aspect-ratio: 1 / 1; }
-#pBoard cg-board { border-radius: 4px; box-shadow: 0 0 0 1px rgb(0 0 0 / 0.12), var(--shadow-lg); }
+:is(#pBoard, #tBoard) { width: 100%; aspect-ratio: 1 / 1; }
+:is(#pBoard, #tBoard) cg-board { border-radius: 4px; box-shadow: 0 0 0 1px rgb(0 0 0 / 0.12), var(--shadow-lg); }
 .pz { padding: 16px; display: grid; gap: 12px; line-height: 1.5; }
 .pz p { margin: 0; }
 .pz-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -331,6 +331,17 @@ tr.click { cursor: pointer; } tr.click:hover td { background: var(--c-surface-al
 .pz-status.wrong { border-left-color: var(--c-danger); }
 .pz-status.check { border-left-color: var(--c-info); }
 .pz-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+/* ---------- openings and endgames ---------- */
+.tr-list { display: grid; gap: 8px; }
+.tr-item { display: grid; justify-content: stretch; justify-items: start; gap: 4px; padding: 10px 12px; border: 1px solid var(--c-line); border-radius: 8px; text-align: left; background: #fff; cursor: pointer; font: inherit; color: inherit; }
+.tr-item:hover { border-color: var(--c-line-strong); }
+.tr-item b { font: 600 14px var(--font-display); display: flex; align-items: center; gap: 8px; }
+.tr-item span { color: var(--c-sub); font-size: 12px; }
+.tr-item .due { color: var(--c-accent); font-weight: 600; }
+.tr-moves { font-variant-numeric: tabular-nums; color: var(--c-sub); }
+.tr-moves b { color: var(--c-ink); }
+.tr-dev { display: grid; gap: 6px; }
+.tr-dev div { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .pz-stats { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--c-sub); font-size: 11px; border-top: 1px solid var(--c-line); padding-top: 10px; }
 
 /* Wider than a phone: the board leaves room under it for the controls, and the column next to it fits the
@@ -375,13 +386,15 @@ tr.click { cursor: pointer; } tr.click:hover td { background: var(--c-surface-al
   .filters { flex: none; flex-wrap: nowrap; gap: 8px; }
   nav.bar > :is(.divider, .spacer, .engine) { display: none; }
   .tabs { position: fixed; z-index: 40; left: 0; right: 0; bottom: 0; gap: 2px; border: 0; border-top: 1px solid var(--c-line); border-radius: 0; background: #fff; padding: 5px 6px max(5px, env(safe-area-inset-bottom)); }
-  .tabs button { flex: 1; height: 48px; border-radius: 8px; font-weight: 600; }
+  .tabs button { flex: 1; min-width: 0; height: 48px; padding: 0 2px; border-radius: 8px; font-weight: 600; font-size: 11.5px; }
   .tabs button[aria-selected="true"] { background: var(--c-accent-soft); box-shadow: none; }
-  body:is([data-view="puzzles"], [data-view="patterns"]) nav.bar { padding: 0; border: 0; }
-  body:is([data-view="puzzles"], [data-view="patterns"]) nav.bar > :not(.tabs) { display: none; }
+  body:is([data-view="puzzles"], [data-view="patterns"], [data-view="openings"], [data-view="endgames"]) nav.bar { padding: 0; border: 0; }
+  body:is([data-view="puzzles"], [data-view="patterns"], [data-view="openings"], [data-view="endgames"]) nav.bar > :not(.tabs) { display: none; }
   #toast { bottom: calc(74px + env(safe-area-inset-bottom)); }
   main { padding: 8px; }
   .games-view, .puzzle-view { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  /* The board's file letters hang past its right edge; at full width that widened the page. */
+  .puzzle-view { overflow-x: clip; }
   .games-view > * { grid-column: 1; grid-row: auto; }
   .coach, .graph-wrap { margin-left: 0; }
   .player, .controls { padding-left: 0; }
@@ -467,6 +480,8 @@ tr.click { cursor: pointer; } tr.click:hover td { background: var(--c-surface-al
     <button role="tab" data-view="summary" aria-selected="false">Summary</button>
     <button role="tab" data-view="puzzles" aria-selected="false">Puzzles <span class="badge" id="pzCount" hidden></span></button>
     <button role="tab" data-view="patterns" aria-selected="false">Patterns</button>
+    <button role="tab" data-view="openings" aria-selected="false">Openings</button>
+    <button role="tab" data-view="endgames" aria-selected="false">Endgames</button>
   </div>
   <span class="divider"></span>
   <div class="filters">
@@ -547,6 +562,11 @@ tr.click { cursor: pointer; } tr.click:hover td { background: var(--c-surface-al
     <div id="pBoard" class="cg-wrap"></div>
     <aside class="panel pz" id="puzzlePanel"></aside>
   </section>
+
+  <section id="trainView" class="puzzle-view" hidden>
+    <div id="tBoard" class="cg-wrap"></div>
+    <aside class="panel pz" id="trainPanel"></aside>
+  </section>
 </main>
 <div id="toast" hidden></div>
 
@@ -555,6 +575,8 @@ tr.click { cursor: pointer; } tr.click:hover td { background: var(--c-surface-al
 import { Chess } from './vendor/chess.js';
 import { Chessground } from './vendor/chessground.js';
 import { MATE, readGame, terminalScore, Uci } from './core.mjs';
+import { OPENINGS } from './openings.mjs';
+import { ENDGAMES } from './endgames.mjs';
 
 // ---------- constants ----------
 // Stockfish 17.1 lite, single-threaded. Absolute URLs, because the engine runs in a blob: worker.
@@ -3078,6 +3100,518 @@ $('#clearPuzzles').addEventListener('click', () => {
   });
 });
 
+// ---------- openings and endgames ----------
+// Openings: play your side of a repertoire line from memory while the trainer plays the other side.
+// A new line is shown once with arrows, then asked without them. Endgames: a position to win or hold
+// against Stockfish. Progress stays in this browser (localStorage), keyed by the line's moves, so
+// editing a line starts it over.
+const TRAIN = 'cca:train';
+const TRAIN_DAYS = [1, 3, 7, 21];          // a line you get right comes back after these many days, then is learned
+const NEW_LINES = 3;                       // new lines per practice session
+const OPENING_DEPTH = 14, ENDGAME_DEPTH = 18;
+const train = store.get(TRAIN) || {};
+const saveTrain = () => store.set(TRAIN, train);
+const lineId = (o, l) => `${o.id}:${l.moves}`;
+let tg = null;
+const T = { view: 'openings', open: null, queue: [], run: null, msg: '', timer: null, anim: null };
+
+// Your move in each position of an opening, and the positions any opening of that colour covers.
+const books = new Map(OPENINGS.map((o) => {
+  const mine = new Map(), lines = new Map();
+  for (const l of o.lines) {
+    const c = new Chess();
+    for (const san of l.moves.split(' ')) {
+      const k = posKey(c.fen());
+      if (!lines.has(k)) lines.set(k, l);
+      const m = c.move(san);
+      if (m.color === o.color) mine.set(k, m.san);
+    }
+    if (!lines.has(posKey(c.fen()))) lines.set(posKey(c.fen()), l);
+  }
+  return [o.id, { mine, lines }];
+}));
+const covered = (color, k) => OPENINGS.some((o) => o.color === color && books.get(o.id).lines.has(k));
+
+const isDue = (id) => train[id]?.tries && train[id].due <= Date.now();
+const learned = (id) => train[id]?.due === LEARNED;
+function lineStatus(id) {
+  const p = train[id];
+  if (!p?.tries) return 'New';
+  if (p.due === LEARNED) return 'Learned';
+  return p.due <= Date.now() ? '<span class="due">Due</span>' : `Next ${relTime(p.due)}`;
+}
+
+function gradeLine(id, ok) {
+  const p = train[id] ||= { box: 0, tries: 0, wins: 0 };
+  p.box = ok ? p.box + 1 : 0;
+  p.due = p.box >= TRAIN_DAYS.length ? LEARNED : Date.now() + TRAIN_DAYS[ok ? p.box : 0] * 864e5;
+  p.tries++;
+  if (ok) p.wins++;
+  p.seen = Date.now();
+  saveTrain();
+}
+
+// Where your loaded games leave the opening: the first position the opening covers where you played
+// something else, unless that move goes into another of your openings (Scotch instead of Italian).
+function deviations(o) {
+  const { mine, lines } = books.get(o.id), user = accountUser(), out = new Map();
+  let reached = 0;
+  for (const g of allGames.values()) {
+    if (!g.fens || g.myColor !== o.color || (user && g.me?.username?.toLowerCase() !== user)) continue;
+    let inBook = 0;
+    for (let i = 0; i < g.moves.length && i < 40; i++) {
+      const k = posKey(g.fens[i]);
+      if (!lines.has(k)) break;
+      inBook++;
+      const want = mine.get(k), m = g.moves[i];
+      if (!want || m.san === want) continue;
+      if (covered(o.color, posKey(g.fens[i + 1]))) break;
+      const id = `${k}|${m.san}`, d = out.get(id) || { n: 0, k, played: m.san, want, no: m.no, color: m.color, line: lines.get(k) };
+      d.n++;
+      out.set(id, d);
+      break;
+    }
+    if (inBook >= 4) reached++;
+  }
+  return { reached, list: [...out.values()].sort((a, b) => b.n - a.n) };
+}
+
+function openTrainer(v) {
+  T.view = v;
+  tg ||= Chessground($('#tBoard'), {
+    coordinates: true, animation: { enabled: true, duration: 150 }, highlight: { lastMove: true, check: true },
+    movable: { free: false, color: undefined, showDests: true, events: { after: (from, to) => trainerMove(from, to) } },
+    premovable: { enabled: false },
+  });
+  if (T.run && T.run.kind !== (v === 'openings' ? 'line' : 'endgame')) stopRun();
+  tg.redrawAll();
+  if (!T.run) idleBoard();
+  renderTrainer();
+}
+
+function idleBoard() {
+  const o = T.view === 'openings' && OPENINGS.find((x) => x.id === T.open);
+  tg.set({ fen: 'start', lastMove: undefined, check: false, orientation: o?.color === 'b' ? 'black' : 'white', movable: { color: undefined, dests: new Map() } });
+  tg.setAutoShapes([]);
+}
+
+function trainBoard(c, lastMove, me) {
+  const turn = c.turn() === 'w' ? 'white' : 'black', movable = c.turn() === me && !c.isGameOver();
+  tg.set({
+    fen: c.fen(), lastMove, check: c.inCheck(), turnColor: turn, orientation: me === 'w' ? 'white' : 'black',
+    movable: { color: movable ? turn : undefined, dests: movable ? legalDests(c) : new Map() },
+  });
+  $('#tBoard').style.removeProperty('--mv');
+}
+
+function mark(to, ok) {
+  tg.setAutoShapes([ok ? badge(to, 'best', '✓') : badge(to, 'blunder', '✗')]);
+  $('#tBoard').style.setProperty('--mv', `var(--${ok ? 'best' : 'blunder'})`);
+}
+
+function stopRun() {
+  clearTimeout(T.timer);
+  clearInterval(T.anim);
+  T.run = null;
+  T.msg = '';
+}
+
+const afterDelay = (ms, run, f) => { clearTimeout(T.timer); T.timer = setTimeout(() => { if (T.run === run) f(); }, ms); };
+const sanMove = (c, from, to) => {
+  const promotion = c.get(from)?.type === 'p' && /[18]$/.test(to) ? 'q' : undefined;
+  return c.move({ from, to, promotion });
+};
+
+// ----- opening lines -----
+function startLine(o, l, learn) {
+  stopRun();
+  T.open = o.id;
+  // The moves as chess.js writes them, so "Nge7" in the file matches "Ne7" when the other knight is pinned.
+  const c = new Chess(), moves = l.moves.split(' ').map((san) => c.move(san).san);
+  T.run = { kind: 'line', o, l, id: lineId(o, l), learn, moves, i: 0, c: new Chess(), missed: false, state: 'move' };
+  trainBoard(T.run.c, undefined, o.color);
+  tg.setAutoShapes([]);
+  lineStep();
+}
+
+// Plays the other side's moves, then waits for yours; at the end of the line, grades it.
+function lineStep() {
+  const r = T.run;
+  if (r.i >= r.moves.length) return lineDone();
+  if (r.c.turn() !== r.o.color) {
+    r.state = 'reply';
+    renderTrainer();
+    return afterDelay(r.i ? 450 : 250, r, () => {
+      const m = r.c.move(r.moves[r.i++]);
+      trainBoard(r.c, [m.from, m.to], r.o.color);
+      tg.setAutoShapes([]);
+      lineStep();
+    });
+  }
+  r.state = 'move';
+  trainBoard(r.c, r.c.history({ verbose: true }).at(-1) && lastSquares(r.c), r.o.color);
+  if (r.learn || r.shown) showWant(r);
+  renderTrainer();
+}
+
+const lastSquares = (c) => { const m = c.history({ verbose: true }).at(-1); return m ? [m.from, m.to] : undefined; };
+function showWant(r) {
+  const m = new Chess(r.c.fen()).move(r.moves[r.i]);
+  tg.setAutoShapes([{ orig: m.from, dest: m.to, brush: 'green' }]);
+}
+
+function lineMove(from, to) {
+  const r = T.run;
+  if (r.state !== 'move') return;
+  const before = r.c.fen(), m = sanMove(r.c, from, to), want = r.moves[r.i];
+  r.shown = false;
+  if (m.san === want) {
+    r.i++;
+    T.msg = '';
+    trainBoard(r.c, [from, to], r.o.color);
+    mark(to, true);
+    return lineStep();
+  }
+  // Wrong: show it, say what the line plays and what the engine thinks of yours, then take it back.
+  r.missed = true;
+  r.state = 'wrong';
+  trainBoard(r.c, [from, to], r.o.color);
+  mark(to, false);
+  const no = `${before.split(' ')[5]}${r.o.color === 'w' ? '.' : '…'}`;
+  T.msg = `<b>${no} ${m.san}</b> isn't the line. It plays <b>${no} ${want}</b>.`;
+  renderTrainer();
+  judge2(r, before, m.lan, want);
+  afterDelay(1400, r, () => {
+    r.c.undo();
+    r.state = 'move';
+    r.shown = true;
+    trainBoard(r.c, lastSquares(r.c), r.o.color);
+    showWant(r);
+    renderTrainer();
+  });
+}
+
+// The engine's view of your move against the line's, so a playable alternative is called that.
+async function judge2(r, before, playedUci, wantSan) {
+  const i = r.i;
+  try {
+    const c1 = new Chess(before); c1.move(playedUci);
+    const c2 = new Chess(before); c2.move(wantSan);
+    const [a] = await probe(c1.fen(), OPENING_DEPTH, 1), [b] = await probe(c2.fen(), OPENING_DEPTH, 1);
+    if (T.run !== r || r.i !== i) return;
+    const pov = (s) => (r.o.color === 'w' ? s : -s), loss = clamp(pov(b)) - clamp(pov(a));
+    const verdict = loss < SLIP ? 'Playable too, but learn the line.' : `It costs about ${(loss / 100).toFixed(1)} pawns.`;
+    T.msg += ` The engine scores yours ${fmtEval(a)} and the line ${fmtEval(b)}. ${verdict}`;
+    renderTrainer();
+  } catch {}
+}
+
+function lineDone() {
+  const r = T.run;
+  r.state = 'done';
+  tg.set({ movable: { color: undefined, dests: new Map() } });
+  if (r.learn) T.msg = 'That was the line with arrows. Now play it from memory.';
+  else {
+    gradeLine(r.id, !r.missed);
+    const p = train[r.id];
+    T.msg = r.missed ? 'Line finished with a slip. It comes back tomorrow.'
+      : p.due === LEARNED ? 'Line finished without a slip. Learned.' : `Line finished without a slip. Next review ${relTime(p.due)}.`;
+  }
+  const eco = ECO?.[posKey(r.c.fen())] || [...r.c.history({ verbose: true })].reverse().map((m) => ECO?.[posKey(m.after)]).find(Boolean);
+  if (eco) T.msg += ` <span class="muted">${esc(eco[0] + ' ' + eco[1])}.</span>`;
+  renderTrainer();
+  probe(r.c.fen(), OPENING_DEPTH, 1).then(([s]) => {
+    if (T.run !== r) return;
+    T.msg += ` The engine scores the final position ${fmtEval(s)}.`;
+    renderTrainer();
+  }).catch(() => {});
+}
+
+function practiseOpening(o) {
+  const due = o.lines.filter((l) => isDue(lineId(o, l)));
+  const fresh = o.lines.filter((l) => !train[lineId(o, l)]?.tries).slice(0, NEW_LINES);
+  T.queue = [...due.map((l) => [l, false]), ...fresh.flatMap((l) => [[l, true], [l, false]])];
+  if (!T.queue.length) {
+    // Nothing due or new: a round of the lines you know, least recently seen first.
+    T.queue = [...o.lines].sort((a, b) => (train[lineId(o, a)]?.seen || 0) - (train[lineId(o, b)]?.seen || 0)).slice(0, 5).map((l) => [l, false]);
+  }
+  nextLine(o);
+}
+
+function nextLine(o) {
+  const n = T.queue.shift();
+  if (!n) { stopRun(); idleBoard(); return renderTrainer(); }
+  startLine(o, ...n);
+}
+
+// ----- endgames -----
+// With `learn`, a green arrow shows the engine's move every turn, the way a new opening line is shown.
+// Those runs teach and are not counted.
+function startEndgame(d, learn) {
+  stopRun();
+  const c = new Chess(d.fen);
+  T.run = { kind: 'endgame', d, c, me: c.turn(), n: 0, state: 'move', hinted: false, learn };
+  trainBoard(c, undefined, T.run.me);
+  tg.setAutoShapes([]);
+  T.msg = '';
+  renderTrainer();
+  if (learn) {
+    const r = T.run;
+    probe(c.fen(), ENDGAME_DEPTH, 1).then(([, pv]) => showEgArrow(r, pv.split(' ')[0])).catch(() => {});
+  }
+}
+
+function showEgArrow(r, u) {
+  if (T.run === r && r.state === 'move' && u) tg.setAutoShapes([arrowTo(u, 'green')]);
+}
+
+const egPov = (r, s) => (r.me === 'w' ? s : -s);
+
+async function endgameMove(from, to) {
+  const r = T.run;
+  if (r.state !== 'move') return;
+  const before = r.c.fen(), m = sanMove(r.c, from, to);
+  r.n++;
+  tg.setAutoShapes([]);
+  trainBoard(r.c, [from, to], r.me);
+  if (r.d.goal === 'win' && r.c.isDraw()) return egFail(r, before, m, 0, '', `<b>${m.san}</b> ends it in a draw. ${drawReason(r.c)}.`);
+  if (endgameOver(r)) return;
+  r.state = 'reply';
+  T.msg = '';
+  renderTrainer();
+  let s, pv;
+  try { [s, pv] = await probe(r.c.fen(), ENDGAME_DEPTH, 8); }
+  catch { return endgameEnd(r, null, "The engine isn't available, so the drill can't go on."); }
+  if (T.run !== r) return;
+  const pov = egPov(r, s);
+  if (r.d.goal === 'win' && pov < 100) return egFail(r, before, m, s, pv, `<b>${m.san}</b> lets the win slip: the engine now calls it ${fmtEval(s)}.`);
+  if (r.d.goal === 'draw' && pov < -250) return egFail(r, before, m, s, pv, `<b>${m.san}</b> loses: the engine now calls it ${fmtEval(s)}.`);
+  if (r.d.goal === 'win' && m.promotion && pov >= 400) return endgameEnd(r, true, `Promoted with <b>${m.san}</b>, and the engine calls it ${fmtEval(s)}.`);
+  if (r.d.goal === 'draw' && r.n >= r.d.moves) return endgameEnd(r, true, `You held for ${r.n} moves. The engine calls it ${fmtEval(s)}.`);
+  const reply = pv.split(' ')[0];
+  const rm = r.c.move({ from: reply.slice(0, 2), to: reply.slice(2, 4), promotion: reply[4] });
+  trainBoard(r.c, [rm.from, rm.to], r.me);
+  if (endgameOver(r)) return;
+  r.state = 'move';
+  renderTrainer();
+  // The engine's line already holds your best answer to its reply.
+  if (r.learn) showEgArrow(r, pv.split(' ')[1]);
+}
+
+// Mate, stalemate, bare kings or a repetition end the drill whoever moved last.
+function endgameOver(r) {
+  const c = r.c;
+  if (c.isCheckmate()) return endgameEnd(r, c.turn() !== r.me, c.turn() !== r.me ? `Checkmate in ${r.n} moves${r.d.goal === 'win' ? ` (par ${r.d.moves})` : ''}.` : 'Checkmated.') ?? true;
+  if (c.isDraw()) return endgameEnd(r, r.d.goal === 'draw', `${drawReason(c)}: a draw.`) ?? true;
+  return false;
+}
+
+function drawReason(c) {
+  if (c.isStalemate()) return `Stalemate: ${c.turn() === 'w' ? 'White' : 'Black'} has no legal move and isn't in check, so it's a draw. Leave the king a square until you can mate`;
+  if (c.isInsufficientMaterial()) return 'Only the kings are left';
+  return c.isThreefoldRepetition() ? 'The position repeated three times' : 'Fifty moves without a capture or pawn move';
+}
+
+// Kings on one line with a single square between them, and the side to move has to give way.
+function opposition(fen) {
+  const k = {};
+  new Chess(fen).board().forEach((row, y) => row.forEach((p, x) => { if (p?.type === 'k') k[p.color] = [x, y]; }));
+  const dx = Math.abs(k.w[0] - k.b[0]), dy = Math.abs(k.w[1] - k.b[1]);
+  return (dx === 0 && dy === 2) || (dy === 0 && dx === 2);
+}
+
+// Why a move threw the result away, from the engine's lines: what the other side does next, the
+// rule of the ending it broke, and the move that kept it.
+function egReasons(r, before, m, pv, better) {
+  const them = r.me === 'w' ? 'b' : 'w', who = them === 'w' ? 'White' : 'Black';
+  const after = playLine(before, m.lan).fens[1], line = playLine(after, pv), good = playLine(before, better);
+  const bm = good.moves[0], out = [];
+  const cap = line.moves.slice(0, 3).find((x) => x.color === them && x.captured);
+  if (cap) out.push(`${who} answers with <b>${cap.san}</b>${line.moves[0] === cap ? '' : ' a move later'} and takes your ${PIECE_NAME[cap.captured]}.`);
+  const kingsAndPawns = !/[nbrq]/i.test(before.split(' ')[0]);
+  if (kingsAndPawns && r.d.goal === 'win') {
+    if (m.piece === 'p' && bm?.piece === 'k') out.push('You pushed the pawn before your king was in front of it. In a pawn ending the king leads and the pawn follows: push too early and the other king blocks it.');
+    if (m.piece === 'k' && bm?.piece === 'p') out.push('Here the pawn move was the point. It spends a move, so the other king has to give way.');
+  }
+  if (kingsAndPawns && line.fens[1] && opposition(line.fens[1])) {
+    out.push(`After <b>${line.moves[0].san}</b> the kings face each other with one square between and it's your move, so ${who} has the opposition and your king has to step aside.`);
+  }
+  if (kingsAndPawns && bm?.piece === 'k' && good.fens[1] && opposition(good.fens[1]) && !opposition(after)) {
+    out.push(`<b>${bm.san}</b> would have put the kings face to face with one square between, with ${who} to move. That's taking the opposition: ${who}'s king has to give way.`);
+  }
+  if (kingsAndPawns && r.d.goal === 'draw' && bm?.piece === 'k') {
+    const files = new Set(new Chess(before).board().flat().filter((x) => x?.type === 'p' && x.color === them).map((x) => x.square[0]));
+    if (files.has(bm.to[0]) && !files.has(m.to[0])) out.push(`Your king belongs in front of the pawn. <b>${bm.san}</b> stays on its file, so the ${who.toLowerCase()} king can't get in front of it. Stepping aside lets it through.`);
+  }
+  if (r.d.id === 'philidor' && bm && /6$/.test(bm.to) && !/6$/.test(m.to)) {
+    out.push('The rook belongs on the sixth rank, where it keeps the white king from coming forward.');
+  }
+  if (r.d.id === 'lucena' && bm?.piece === 'r' && m.piece !== 'r') out.push('First the rook goes to the fourth rank, so it can block the checks later. Only then does the king walk out.');
+  if (!cap && line.moves.length) out.push(`Watch how ${who} goes on: <b>${numberedSan(line, '…').slice(0, 6).join(' ')}</b>.`);
+  if (bm && !out.some((t) => t.includes(`<b>${bm.san}</b>`))) out.push(`The move that kept it was <b>${bm.san}</b>.`);
+  return out.join(' ');
+}
+
+// The drill is lost: say why, then play the punishing line on the board. Show why and Better move
+// replay either line.
+async function egFail(r, before, m, s, pv, lead) {
+  r.state = 'reply';
+  T.msg = 'Working out why…';
+  renderTrainer();
+  let better = '';
+  try { better = (await probe(before, ENDGAME_DEPTH, 8))[1]; } catch {}
+  if (T.run !== r) return;
+  const after = playLine(before, m.lan).fens[1];
+  r.lines = { why: [after, pv], better: [before, better] };
+  endgameEnd(r, false, `${lead} ${egReasons(r, before, m, pv, better)}`);
+  if (pv) playTrainLine(after, pv);
+}
+
+function playTrainLine(fen, pv) {
+  const r = T.run, line = playLine(fen, pv.split(' ').slice(0, 8).join(' '));
+  clearInterval(T.anim);
+  tg.setAutoShapes([]);
+  tg.set({ fen, lastMove: undefined, movable: { color: undefined, dests: new Map() } });
+  let i = 0;
+  T.anim = setInterval(() => {
+    if (T.run !== r || ++i > line.moves.length) return clearInterval(T.anim);
+    const mv = line.moves[i - 1];
+    tg.set({ fen: line.fens[i], lastMove: [mv.from, mv.to], check: mv.san.includes('+') });
+  }, 900);
+}
+
+function endgameEnd(r, ok, text) {
+  r.state = 'done';
+  tg.set({ movable: { color: undefined, dests: new Map() } });
+  if (ok != null && !r.learn) {
+    const p = train[`eg:${r.d.id}`] ||= { tries: 0, wins: 0 };
+    p.tries++;
+    if (ok && !r.hinted) { p.wins++; if (r.d.goal === 'win') p.best = Math.min(p.best || Infinity, r.n); }
+    p.seen = Date.now();
+    saveTrain();
+  }
+  const head = !ok ? 'Not this time.' : r.learn ? 'Done with arrows. Now try it without them.' : r.hinted ? 'Done, with a hint.' : 'Solved.';
+  T.msg = ok == null ? text : `<b>${head}</b> ${text}`;
+  r.ok = ok;
+  renderTrainer();
+}
+
+async function endgameHint() {
+  const r = T.run;
+  r.hinted = true;
+  try {
+    const [, pv] = await probe(r.c.fen(), ENDGAME_DEPTH, 1);
+    if (T.run === r && r.state === 'move') tg.setAutoShapes([arrowTo(pv.split(' ')[0], 'blue')]);
+  } catch {}
+}
+
+function trainerMove(from, to) {
+  if (T.run?.kind === 'line') lineMove(from, to);
+  else if (T.run?.kind === 'endgame') endgameMove(from, to);
+}
+
+// ----- panel -----
+function lineSoFar(r) {
+  const h = r.c.history();
+  return h.map((san, i) => `${i % 2 ? '' : `${i / 2 + 1}.`}${san}`).join(' ') || 'Start position';
+}
+
+function trainerHtml() {
+  const btn = (act, text, primary = false, arg = '') => `<button data-tr="${act}"${arg !== '' ? ` data-arg="${esc(arg)}"` : ''}${primary ? ' class="primary"' : ''}>${text}</button>`;
+  const status = (cls, html) => `<div class="pz-status ${cls}">${html}</div>`;
+  const side = (c) => `<span class="pc pc-${c}"></span>`;
+  const r = T.run;
+
+  if (T.view === 'endgames') {
+    if (r) {
+      const { d } = r;
+      const goal = (d.goal === 'win' ? 'Win: mate, or promote and keep the win.' : `Hold the draw for ${d.moves} moves.`)
+        + (r.learn ? ' Follow the arrow, or play your own move if you see a better one.' : '');
+      const body = {
+        move: status('', `${goal}${r.n ? ` Move ${r.n + 1}.` : ''}`),
+        reply: status('check', T.msg || 'The engine is replying…'),
+        done: status(r.ok ? 'right' : r.ok === false ? 'wrong' : '', T.msg),
+      }[r.state];
+      const acts = r.state === 'done'
+        ? [btn('egTest', r.learn && r.ok ? 'Now without arrows' : 'Try again', true, d.id),
+          r.lines?.why[1] ? btn('egWhy', 'Show why again') : '', r.lines?.better[1] ? btn('egBetter', 'Play the better move') : '',
+          btn('egLearn', 'Again with arrows', false, d.id), btn('list', 'All endgames')]
+        : [r.state === 'move' && !r.learn ? btn('hint', 'Hint') : '', btn(r.learn ? 'egLearn' : 'egTest', 'Restart', false, d.id), btn('list', 'All endgames')];
+      return `<div class="pz-task">${side(r.me)}${esc(d.name)}</div>${r.learn ? '<p class="pz-ctx">Learning: arrows on</p>' : ''}<p class="pz-ctx">${esc(d.tip)}</p>${body}<div class="pz-actions">${acts.join('')}</div>`;
+    }
+    return `<div class="pz-top"><b>Endgames</b></div>
+      <p class="pz-ctx">Win or hold each position against Stockfish. You play the side to move. Until you solve a drill on your own, a green arrow shows the engine's move every turn.</p>
+      <div class="tr-list">${ENDGAMES.map((d) => {
+        const p = train[`eg:${d.id}`], c = new Chess(d.fen).turn();
+        const done = p?.tries ? `${p.wins}/${p.tries} solved${p.best ? `, best ${p.best} moves` : ''}` : 'Not tried yet, starts with arrows';
+        return `<button class="tr-item" data-tr="eg" data-arg="${d.id}"><b>${side(c)}${esc(d.name)}</b><span>${d.goal === 'win' ? 'Win' : 'Draw'} · ${done}</span></button>`;
+      }).join('')}</div>`;
+  }
+
+  const o = OPENINGS.find((x) => x.id === T.open);
+  if (r) {
+    const prompt = r.learn ? 'Play the move the arrow shows.' : r.shown ? 'Now play the line\'s move.' : 'Your move: play the line from memory.';
+    const body = {
+      move: status('', prompt + (T.msg ? ` <br>${T.msg}` : '')),
+      reply: status('check', T.msg || 'Opponent to move…'),
+      wrong: status('wrong', T.msg),
+      done: status(r.missed || r.learn ? '' : 'right', T.msg),
+    }[r.state];
+    const acts = r.state === 'done'
+      ? [T.queue.length ? btn('next', `Next line (${T.queue.length} left)`, true) : btn('open', 'Done', true, o.id), btn('again', 'Again')]
+      : [r.state === 'move' && !r.learn && !r.shown ? btn('show', 'Show move') : '', btn('open', 'Stop', false, o.id)];
+    return `<div class="pz-task">${side(o.color)}${esc(o.name)}</div>
+      <p class="pz-ctx">${esc(r.l.name)}${r.learn ? ' · learning' : ''}</p>
+      <p class="tr-moves">${esc(lineSoFar(r))}</p>${body}<div class="pz-actions">${acts.join('')}</div>`;
+  }
+  if (o) {
+    const ids = o.lines.map((l) => lineId(o, l));
+    const due = ids.filter(isDue).length, fresh = ids.filter((id) => !train[id]?.tries).length;
+    const dev = deviations(o);
+    const games = dev.reached ? `<div class="tr-dev"><p>Your loaded games reached it ${dev.reached === 1 ? 'once' : `${dev.reached} times`}.${dev.list.length ? ' Where you left it:' : ' You never left it.'}</p>
+      ${dev.list.slice(0, 4).map((d) => `<div><span>${d.no}${d.color === 'w' ? '.' : '…'} <b>${esc(d.played)}</b> instead of <b>${esc(d.want)}</b> · ${d.n}×</span>${btn('line', 'Drill', false, o.lines.indexOf(d.line))}</div>`).join('')}</div>`
+      : '<p class="pz-ctx">None of your loaded games reached it yet.</p>';
+    return `<div class="pz-top"><b>${side(o.color)} ${esc(o.name)}</b>${btn('list', '‹ All openings')}</div>
+      <p class="pz-ctx">${esc(o.blurb)}</p>
+      <div class="pz-actions">${btn('practise', due || fresh ? `Practise (${due} due, ${Math.min(fresh, NEW_LINES)} new)` : 'Practise', true, o.id)}</div>
+      ${games}
+      <div class="tr-list">${o.lines.map((l, i) => `<button class="tr-item" data-tr="line" data-arg="${i}"><b>${esc(l.name)}</b><span>${lineStatus(lineId(o, l))} · ${l.moves.split(' ').length} plies</span></button>`).join('')}</div>`;
+  }
+  return `<div class="pz-top"><b>Openings</b></div>
+    <p class="pz-ctx">Play your side of each line from memory. New lines are shown once with arrows; lines you get right come back less often.</p>
+    <div class="tr-list">${OPENINGS.map((x) => {
+      const ids = x.lines.map((l) => lineId(x, l)), due = ids.filter(isDue).length, done = ids.filter(learned).length;
+      return `<button class="tr-item" data-tr="open" data-arg="${x.id}"><b>${side(x.color)}${esc(x.name)}</b><span>${x.lines.length} lines · ${done} learned${due ? ` · <span class="due">${due} due</span>` : ''}</span></button>`;
+    }).join('')}</div>`;
+}
+
+function renderTrainer() { $('#trainPanel').innerHTML = trainerHtml(); }
+
+const trainerActions = {
+  open: (id) => { stopRun(); T.open = id; idleBoard(); renderTrainer(); },
+  list: () => { stopRun(); T.open = null; idleBoard(); renderTrainer(); },
+  practise: (id) => practiseOpening(OPENINGS.find((x) => x.id === id)),
+  line: (i) => {
+    const o = OPENINGS.find((x) => x.id === T.open), l = o.lines[+i];
+    T.queue = train[lineId(o, l)]?.tries ? [] : [[l, false]];
+    startLine(o, l, !train[lineId(o, l)]?.tries);
+  },
+  next: () => nextLine(T.run.o),
+  again: () => startLine(T.run.o, T.run.l, false),
+  show: () => { T.run.missed = true; T.run.shown = true; showWant(T.run); renderTrainer(); },
+  // Arrows until you have solved the drill once without them.
+  eg: (id) => startEndgame(ENDGAMES.find((d) => d.id === id), !train[`eg:${id}`]?.wins),
+  egLearn: (id) => startEndgame(ENDGAMES.find((d) => d.id === id), true),
+  egTest: (id) => startEndgame(ENDGAMES.find((d) => d.id === id), false),
+  hint: () => endgameHint(),
+  egWhy: () => playTrainLine(...T.run.lines.why),
+  egBetter: () => playTrainLine(...T.run.lines.better),
+};
+$('#trainPanel').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-tr]');
+  if (b) trainerActions[b.dataset.tr](b.dataset.arg);
+});
+
 // ---------- patterns ----------
 // Counts of the engine's tags over your costly mistakes (the puzzle set), by month and overall, each
 // with a drill of its puzzles.
@@ -3242,7 +3776,9 @@ function setView(v) {
   $('#summaryView').hidden = v !== 'summary';
   $('#puzzleView').hidden = v !== 'puzzles';
   $('#patternsView').hidden = v !== 'patterns';
-  if (v === 'summary') renderSummary();
+  $('#trainView').hidden = v !== 'openings' && v !== 'endgames';
+  if (v === 'openings' || v === 'endgames') openTrainer(v);
+  else if (v === 'summary') renderSummary();
   else if (v === 'patterns') renderPatterns();
   else if (v === 'puzzles') openPuzzles();
   else { cg.redrawAll(); renderGraph(); }
@@ -3340,7 +3876,7 @@ graph.addEventListener('pointermove', (e) => {
 graph.addEventListener('pointerleave', () => (tip.hidden = true));
 
 let resizeTimer;
-window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { cg.redrawAll(); pg?.redrawAll(); renderGraph(); }, 100); });
+window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { cg.redrawAll(); pg?.redrawAll(); tg?.redrawAll(); renderGraph(); }, 100); });
 
 // Another tab saved an analysis or puzzle progress: pick it up without redoing the work.
 channel.onmessage = async ({ data }) => {

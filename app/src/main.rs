@@ -36,6 +36,8 @@ const PAGE: &[(&str, &[u8])] = &[
     ("index.html", include_bytes!("../../index.html")),
     ("core.mjs", include_bytes!("../../core.mjs")),
     ("eco.json", include_bytes!("../../eco.json")),
+    ("openings.mjs", include_bytes!("../../openings.mjs")),
+    ("endgames.mjs", include_bytes!("../../endgames.mjs")),
     ("icon-180.png", include_bytes!("../../icon-180.png")),
     ("icon-192.png", include_bytes!("../../icon-192.png")),
     ("icon-512.png", include_bytes!("../../icon-512.png")),

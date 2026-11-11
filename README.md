@@ -68,6 +68,24 @@ Without the Mac app, use the page above or serve the folder with any static serv
 - Every puzzle carries what Stockfish says went wrong: material lost to the opponent's best reply, material you missed, fork, check, mate, threw away a win, time pressure, plus the phase, the piece you moved, the opening, the clock and whether you had castled.
 - The Patterns tab counts those tags across your mistakes, per month, with a Practise button for each.
 
+## Openings
+
+- The Openings tab drills a repertoire built from what this account plays: the Caro-Kann and the Slav as Black; the Scotch, the Italian, and answers to the Petrov, Philidor, Sicilian (Alapin), Scandinavian and French as White. The lines live in `openings.mjs`.
+- You play your side of a line from memory and the trainer plays the other side. A new line is shown once with arrows, then asked again without them.
+- A wrong move is taken back, with the line's move as an arrow, and Stockfish says whether yours was playable anyway or how many pawns it costs. You then play the right move and carry on.
+- A line you finish without a slip comes back after 1, 3, 7 and 21 days, then counts as learned. A slip starts it over. Practise takes the due lines plus 3 new ones.
+- Each opening lists where your loaded games left it: the position, what you played, what the line plays and how often, with a Drill button for that line. A move that leads into another of your openings (3.d4 instead of the Italian's 3.Bc4) doesn't count as leaving.
+- Progress is kept in this browser's `localStorage`, keyed by each line's moves, so editing a line starts that line over.
+
+## Endgames
+
+- The Endgames tab has positions to win or hold against Stockfish: queen, rook and two-bishop mates, king and pawn endings (opposition, key squares, holding the draw), Lucena, Philidor, and queen against a pawn on the seventh. They live in `endgames.mjs`.
+- You play the side to move. A win ends at mate, or at a promotion the engine still calls winning. A draw ends after the drill's number of moves while the engine still calls it level, or at stalemate, bare kings or a repetition.
+- Until you have solved a drill once on your own, it plays with arrows: a green arrow shows the engine's move every turn, like a new opening line. You can follow it or play your own move. Runs with arrows aren't counted. After one, Now without arrows starts the counted attempt.
+- A move that throws away the win, or loses the drawn position, ends the drill and says why: what the other side takes, the rule of the ending it broke (the king leads the pawn, the opposition, the king in front of the pawn, the Philidor rook on the sixth, the Lucena rook on the fourth, stalemate) and the move that kept it. The board then plays the engine's punishing line. Show why again and Play the better move replay either line. Without arrows, Hint shows the engine's move as a blue arrow.
+
+`node tools/check-openings.mjs` checks both files: every move legal, one answer per position for your side, no move of yours more than 0.75 pawns worse than Stockfish's, and each endgame goal matching the engine.
+
 ## Batch mode
 
 ```bash
