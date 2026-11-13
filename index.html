@@ -341,6 +341,9 @@ tr.click { cursor: pointer; } tr.click:hover td { background: var(--c-surface-al
 .tr-moves { font-variant-numeric: tabular-nums; color: var(--c-sub); }
 .tr-moves b { color: var(--c-ink); }
 .tr-dev { display: grid; gap: 6px; }
+.tr-note { margin: 0; padding: 8px 10px; border-radius: 8px; background: var(--c-accent-soft); color: var(--c-accent-deep); }
+.tr-ideas { margin: 0; padding-left: 18px; display: grid; gap: 4px; color: var(--c-sub); }
+.tr-item .tr-tag { padding: 1px 6px; border-radius: 6px; background: var(--c-accent-soft); color: var(--c-accent); font: 700 10px var(--font-sans); text-transform: uppercase; }
 .tr-dev div { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .pz-stats { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--c-sub); font-size: 11px; border-top: 1px solid var(--c-line); padding-top: 10px; }
 
@@ -3511,6 +3514,15 @@ function trainerMove(from, to) {
 }
 
 // ----- panel -----
+// The note on the latest move played that has one. Notes are keyed like "6.Bxf7+" or "5...dxc3".
+function lineNote(r) {
+  for (let i = r.i - 1; i >= 0 && r.l.notes; i--) {
+    const t = r.l.notes[`${Math.floor(i / 2) + 1}${i % 2 ? '...' : '.'}${r.moves[i]}`];
+    if (t) return t;
+  }
+  return '';
+}
+
 function lineSoFar(r) {
   const h = r.c.history();
   return h.map((san, i) => `${i % 2 ? '' : `${i / 2 + 1}.`}${san}`).join(' ') || 'Start position';
@@ -3562,7 +3574,7 @@ function trainerHtml() {
       : [r.state === 'move' && !r.learn && !r.shown ? btn('show', 'Show move') : '', btn('open', 'Stop', false, o.id)];
     return `<div class="pz-task">${side(o.color)}${esc(o.name)}</div>
       <p class="pz-ctx">${esc(r.l.name)}${r.learn ? ' · learning' : ''}</p>
-      <p class="tr-moves">${esc(lineSoFar(r))}</p>${body}<div class="pz-actions">${acts.join('')}</div>`;
+      <p class="tr-moves">${esc(lineSoFar(r))}</p>${lineNote(r) ? `<p class="tr-note">${esc(lineNote(r))}</p>` : ''}${body}<div class="pz-actions">${acts.join('')}</div>`;
   }
   if (o) {
     const ids = o.lines.map((l) => lineId(o, l));
@@ -3573,9 +3585,10 @@ function trainerHtml() {
       : '<p class="pz-ctx">None of your loaded games reached it yet.</p>';
     return `<div class="pz-top"><b>${side(o.color)} ${esc(o.name)}</b>${btn('list', '‹ All openings')}</div>
       <p class="pz-ctx">${esc(o.blurb)}</p>
+      ${o.ideas ? `<ul class="tr-ideas">${o.ideas.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}
       <div class="pz-actions">${btn('practise', due || fresh ? `Practise (${due} due, ${Math.min(fresh, NEW_LINES)} new)` : 'Practise', true, o.id)}</div>
       ${games}
-      <div class="tr-list">${o.lines.map((l, i) => `<button class="tr-item" data-tr="line" data-arg="${i}"><b>${esc(l.name)}</b><span>${lineStatus(lineId(o, l))} · ${l.moves.split(' ').length} plies</span></button>`).join('')}</div>`;
+      <div class="tr-list">${o.lines.map((l, i) => `<button class="tr-item" data-tr="line" data-arg="${i}"><b>${esc(l.name)}${l.trap ? '<span class="tr-tag">Trap</span>' : ''}</b><span>${lineStatus(lineId(o, l))} · ${l.moves.split(' ').length} plies</span></button>`).join('')}</div>`;
   }
   return `<div class="pz-top"><b>Openings</b></div>
     <p class="pz-ctx">Play your side of each line from memory. New lines are shown once with arrows; lines you get right come back less often.</p>

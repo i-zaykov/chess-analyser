@@ -57,6 +57,8 @@ for (const o of OPENINGS) {
       if (had && had !== m.san) fail(`${l.name}: plays ${m.san} where another line plays ${had} (after ${c.history().slice(0, -1).join(' ')})`);
       mine.set(k, m.san);
     }
+    const plies = new Set(c.history().map((san, i) => `${Math.floor(i / 2) + 1}${i % 2 ? '...' : '.'}${san}`));
+    for (const n of Object.keys(l.notes || {})) if (!plies.has(n)) fail(`${l.name}: note on ${n}, which the line never plays`);
   }
   // Engine check, once per position you move in.
   for (const [k, san] of mine) {

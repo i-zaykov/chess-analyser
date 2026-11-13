@@ -70,7 +70,7 @@ Without the Mac app, use the page above or serve the folder with any static serv
 
 ## Openings
 
-- The Openings tab drills a repertoire built from what this account plays: the Caro-Kann and the Slav as Black; the Scotch, the Italian, and answers to the Petrov, Philidor, Sicilian (Alapin), Scandinavian and French as White. The lines live in `openings.mjs`.
+- The Openings tab drills a repertoire built from what this account plays: the Caro-Kann and the Slav as Black; the Scotch, the Scotch Gambit, the Italian, and answers to the Petrov, Philidor, Sicilian (Alapin), Scandinavian and French as White. The lines live in `openings.mjs`.
 - You play your side of a line from memory and the trainer plays the other side. A new line is shown once with arrows, then asked again without them.
 - A wrong move is taken back, with the line's move as an arrow, and Stockfish says whether yours was playable anyway or how many pawns it costs. You then play the right move and carry on.
 - A line you finish without a slip comes back after 1, 3, 7 and 21 days, then counts as learned. A slip starts it over. Practise takes the due lines plus 3 new ones.
